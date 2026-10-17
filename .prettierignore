@@ -1,0 +1,10 @@
+.next
+.velite
+node_modules
+pnpm-lock.yaml
+public/static
+public/search-index.json
+playwright-report
+test-results
+CLAUDE.md
+AGENTS.md
