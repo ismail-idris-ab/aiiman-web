@@ -144,3 +144,12 @@ tests/                  # unit/ and e2e/
 - 2026-10-17 — Canonical origin = `NEXT_PUBLIC_SITE_URL` if set, else `siteConfig.url` — lets e2e run against localhost while production never needs the var.
 - 2026-10-17 — ESLint kept on 9.x (template default) — eslint-config-next's bundled plugins are tested on 9; 10 adds no needed feature.
 - 2026-10-17 — Dev deps `tsx` (run TS build scripts) and `fast-xml-parser` (parse feeds/sitemap in tests with a real parser) — required by the spec's script and XML-validation gates.
+- 2026-10-17 — `remark-gfm` removed — Velite bundles GFM and enables it by default (`mdx.gfm`); adding it again would run the plugin twice.
+- 2026-10-17 — Dev dep `@types/mdx` — official `MDXComponents` type for the component allowlist (types only).
+- 2026-10-17 — Velite `copyLinkedFiles` off; own remark plugin (`src/lib/content/remark-content.ts`) copies colocated images via Velite's `processAsset` and stamps width/height/blur — the built-in copier records no dimensions, so `next/image` would have caused layout shift.
+- 2026-10-17 — h1 and missing-alt checks run on the parsed mdast, not a `^# ` regex — the AST already excludes code fences, so no false positives.
+- 2026-10-17 — Content script is `velite build --clean --strict` — the Velite CLI's `--strict` flag defaults to false and overrides `strict: true` in the config, so invalid content silently exited 0 without it. Dev watch stays non-strict so typos don't kill `next dev`.
+- 2026-10-17 — Author review notes in MDX use `{/* REVIEW: … */}` not `<!-- -->` — MDX 3 cannot parse HTML comments. They're stripped from `raw` and `plainText` so they never reach search, `.md` routes or `llms.txt`.
+- 2026-10-17 — Content logic lives in pure `src/lib/content/queries.ts` (unit-tested with fixtures); `src/lib/content.ts` is the `server-only` binding that injects mode + clock. Scheduled visibility is decided at build time, which is why the daily rebuild exists.
+- 2026-10-17 — Search index built by a pure `buildSearchIndex()` used by both `scripts/build-search-index.ts` (prod build) and Velite's `complete` hook (dev only), so search stays fresh while writing.
+- 2026-10-17 — Known low risk: Velite copies images of draft entries to `public/static` in production builds; filenames are content-hashed (unguessable) but technically reachable.
