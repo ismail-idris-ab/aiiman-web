@@ -1,0 +1,7 @@
+# REVIEW: confirm status and add playStoreUrl if published.
+name: Tabbas
+summary: Android app that announces confirmed bank payments aloud in Hausa for traders.
+status: building
+featured: true
+order: 2
+draft: true

@@ -1,0 +1,68 @@
+---
+title: Format naira amounts correctly in TypeScript
+summary: Use the built-in Intl.NumberFormat API to display naira amounts with the right symbol, separators and decimals — no library needed.
+date: 2026-10-14
+type: tutorial
+tags: [typescript, javascript, nigeria]
+featured: 3
+draft: true
+---
+
+{/* REVIEW: seed tutorial written by Claude. Outputs below were verified in Node 22. */}
+
+Hand-rolled currency formatting breaks on negatives, thousands separators and rounding. The platform already solves this.
+
+![Diagram: the number 1250 passes through Intl.NumberFormat with the en-NG locale and NGN currency and comes out as NGN 1,250.00](./formatter-flow.png)
+
+## Create one formatter
+
+Creating a formatter is the expensive part, so build it once and reuse it.
+
+```ts title="src/lib/money.ts"
+const naira = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+});
+
+export const formatNaira = (amount: number): string => naira.format(amount);
+
+formatNaira(1250); // "₦1,250.00"
+formatNaira(-500); // "-₦500.00"
+```
+
+## Show the currency code instead of the symbol
+
+Some fonts and older Android devices render `₦` poorly. Use the code when that matters.
+
+```ts
+new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  currencyDisplay: "code",
+}).format(1250); // "NGN 1,250.00"
+```
+
+## Drop the kobo for large amounts
+
+```ts
+new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  maximumFractionDigits: 0,
+}).format(1250); // "₦1,250"
+```
+
+## Compact amounts for dashboards
+
+```ts
+new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  notation: "compact",
+}).format(2_500_000); // "₦2.5M"
+```
+
+<Callout title="Store kobo, not naira">
+  Keep money as an integer number of kobo in your database and divide by 100
+  only when formatting. Floating-point naira values accumulate rounding errors.
+</Callout>

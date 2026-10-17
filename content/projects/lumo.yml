@@ -1,0 +1,7 @@
+# REVIEW: confirm status, add url / playStoreUrl / repoUrl if public.
+name: Lumo
+summary: Classifieds marketplace.
+status: building
+featured: true
+order: 1
+draft: true

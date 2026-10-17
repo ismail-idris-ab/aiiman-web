@@ -1,0 +1,7 @@
+# REVIEW: confirm status and add playStoreUrl if published.
+name: Statusly
+summary: WhatsApp status saver for Android.
+status: building
+featured: false
+order: 5
+draft: true

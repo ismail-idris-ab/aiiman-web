@@ -1,0 +1,18 @@
+---
+title: A short checklist for designing on metered data
+summary: Every kilobyte costs your user money. A few defaults that keep pages light without making them worse to use.
+date: 2026-10-10
+type: note
+tags: [performance, web, nigeria]
+featured: 2
+draft: true
+---
+
+{/* REVIEW: seed draft written by Claude. Keep, edit, or delete. */}
+
+When most of your readers pay for data by the megabyte, page weight stops being a vanity metric.
+
+- Ship HTML first; add JavaScript only where interaction needs it.
+- Size every image explicitly and let the framework serve the smallest one that fits.
+- Load embeds such as videos only after the reader asks for them.
+- Self-host fonts and limit yourself to one or two families.
