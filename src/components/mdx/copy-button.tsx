@@ -24,7 +24,7 @@ export function CopyButton() {
       <button
         type="button"
         onClick={copy}
-        className="border-border absolute top-2 right-2 min-h-8 rounded-md border bg-background px-2 text-xs opacity-80 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        className="absolute top-2 right-2 min-h-8 rounded-md border border-border bg-background px-2 text-xs opacity-80 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
       >
         {status === "copied" ? "Copied" : "Copy"}
         <span className="sr-only"> code to clipboard</span>

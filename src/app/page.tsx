@@ -1,69 +1,122 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+import { NewsletterBox } from "@/components/newsletter/newsletter-box";
+import { ItemList } from "@/components/ui/item-list";
+import { ProjectLinks } from "@/components/ui/project-links";
+import { getFeatured, getFeaturedProjects, getLatest } from "@/lib/content";
+import { siteConfig } from "@/site.config";
+
+const LATEST_COUNT = 6;
+
+export default function HomePage() {
+  const featured = getFeatured();
+  const projects = getFeaturedProjects();
+  const latest = getLatest(LATEST_COUNT);
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex w-full max-w-3xl flex-1 flex-col items-center justify-between bg-white px-16 py-32 sm:items-start dark:bg-black">
-        <Image
-          className="h-5 w-[100px] dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl leading-10 font-semibold tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="max-w-[68ch]">
+      <section aria-labelledby="intro">
+        <h1
+          id="intro"
+          className="font-serif text-4xl font-bold tracking-tight text-balance sm:text-5xl"
+        >
+          {siteConfig.author.name}
+        </h1>
+        <p className="mt-4 font-serif text-xl leading-relaxed text-pretty">
+          {siteConfig.author.bio} Based in {siteConfig.author.location}. This is
+          my public notebook: essays, notes, tutorials and talks in one place.
+        </p>
+        <p className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
+          <Link
+            href="/about"
+            className="text-accent underline underline-offset-4"
+          >
+            More about me
+          </Link>
+          <Link
+            href="/writing"
+            className="text-accent underline underline-offset-4"
+          >
+            Browse everything
+          </Link>
+          <a
+            href={siteConfig.socials.x ?? undefined}
+            rel="noopener noreferrer me"
+            className="text-accent underline underline-offset-4"
+          >
+            {siteConfig.twitterHandle} on X
+          </a>
+        </p>
+      </section>
+
+      {featured.length > 0 ? (
+        <section aria-labelledby="start-here" className="mt-16">
+          <h2 id="start-here" className="font-serif text-2xl font-bold">
+            Start here
+          </h2>
+          <p className="mt-1 text-muted">
+            A few pieces that explain how I think and work.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] md:w-[158px] dark:hover:bg-[#ccc]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="h-[14px] w-4 dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] md:w-[158px] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          <div className="mt-4">
+            <ItemList items={featured} showSummary />
+          </div>
+        </section>
+      ) : null}
+
+      {projects.length > 0 ? (
+        <section aria-labelledby="building" className="mt-16">
+          <h2 id="building" className="font-serif text-2xl font-bold">
+            Currently building
+          </h2>
+          <ul className="mt-4 divide-y divide-border">
+            {projects.map((project) => (
+              <li key={project.slug} className="py-3">
+                <p className="font-serif text-lg font-bold">{project.name}</p>
+                <p className="mt-1 text-muted">{project.summary}</p>
+                <ProjectLinks project={project} className="mt-1" />
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3">
+            <Link
+              href="/projects"
+              className="text-accent underline underline-offset-4"
+            >
+              All projects
+            </Link>
+          </p>
+        </section>
+      ) : null}
+
+      <section aria-labelledby="latest" className="mt-16">
+        <h2 id="latest" className="font-serif text-2xl font-bold">
+          Latest
+        </h2>
+        {latest.length > 0 ? (
+          <>
+            <div className="mt-4">
+              <ItemList items={latest} />
+            </div>
+            <p className="mt-3">
+              <Link
+                href="/writing"
+                className="text-accent underline underline-offset-4"
+              >
+                See all writing
+              </Link>
+            </p>
+          </>
+        ) : (
+          <p className="mt-3 text-muted">
+            The first posts are on their way. Subscribe below to get them by
+            email.
+          </p>
+        )}
+      </section>
+
+      <div className="mt-16">
+        <NewsletterBox />
+      </div>
     </div>
   );
 }

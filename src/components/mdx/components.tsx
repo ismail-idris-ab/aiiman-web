@@ -85,7 +85,7 @@ function MdxImage({
 function Callout({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <aside
-      className="not-prose border-border bg-muted/40 my-6 rounded-lg border px-5 py-4"
+      className="not-prose my-6 rounded-lg border border-border bg-accent-soft px-5 py-4"
       role="note"
     >
       {title === undefined ? null : (
