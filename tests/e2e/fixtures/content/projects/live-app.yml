@@ -1,0 +1,6 @@
+name: Fixture Live App
+summary: A live fixture project.
+status: live
+url: https://example.com
+featured: true
+order: 1

@@ -4,6 +4,7 @@ import type { Entry, Link } from "#velite";
 import MiniSearch from "minisearch";
 
 import { createContentQueries } from "./content/queries";
+import { formatDate } from "./dates";
 import type { VisibilityMode } from "./content/visibility";
 import { searchIndexOptions, type SearchDocument } from "./search";
 
@@ -26,6 +27,7 @@ export function buildSearchIndex(
     type: item.type,
     lang: item.lang,
     date: item.date,
+    dateLabel: formatDate(item.date),
     external: item.kind === "link",
   }));
 

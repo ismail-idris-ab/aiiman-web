@@ -231,7 +231,8 @@ const pages = defineCollection({
 });
 
 export default defineConfig({
-  root: "content",
+  // CONTENT_DIR lets the e2e suite build against fixture content in production mode.
+  root: process.env.CONTENT_DIR ?? "content",
   strict: true,
   output: { ...output, clean: false },
   collections: { entries, links, projects, pages },

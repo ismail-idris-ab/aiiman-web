@@ -18,6 +18,8 @@ export interface SearchDocument {
   type: ItemType;
   lang: Lang;
   date: string;
+  /** Preformatted at build time so the browser never formats dates. */
+  dateLabel: string;
   external: boolean;
 }
 
@@ -27,7 +29,16 @@ export const SEARCH_INDEX_PATH = "/search-index.json";
 
 export const searchIndexOptions: Options<SearchDocument> = {
   fields: ["title", "tags", "summary", "plainText"],
-  storeFields: ["title", "summary", "url", "type", "lang", "date", "external"],
+  storeFields: [
+    "title",
+    "summary",
+    "url",
+    "type",
+    "lang",
+    "date",
+    "dateLabel",
+    "external",
+  ],
   // Applies to indexed fields only; stored fields keep their original types.
   stringifyField: (value: unknown) =>
     Array.isArray(value) ? value.join(" ") : String(value ?? ""),

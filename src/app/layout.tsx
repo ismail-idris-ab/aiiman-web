@@ -5,6 +5,7 @@ import { PreviewBanner } from "@/components/layout/preview-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { ThemeProvider } from "@/components/layout/theme-provider";
+import { SearchDialog } from "@/components/search/search-dialog";
 import { siteUrl } from "@/env";
 import { siteConfig } from "@/site.config";
 
@@ -58,7 +59,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             Skip to content
           </a>
           <PreviewBanner />
-          <SiteHeader />
+          <SiteHeader search={<SearchDialog />} />
           <main
             id="main"
             tabIndex={-1}

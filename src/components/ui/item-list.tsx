@@ -40,13 +40,16 @@ export function ItemRow({
   item,
   showSummary = false,
   showDate = true,
+  dataItemId,
 }: {
   item: Item;
   showSummary?: boolean;
   showDate?: boolean;
+  /** Hook for the archive filter island, which toggles rows in place. */
+  dataItemId?: string;
 }) {
   return (
-    <li className="py-3">
+    <li className="py-3" data-item-id={dataItemId}>
       <ItemLink
         item={item}
         className="font-serif text-lg leading-snug font-bold text-foreground decoration-accent decoration-2 underline-offset-4 hover:underline"

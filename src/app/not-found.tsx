@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { OpenSearchButton } from "@/components/search/search-dialog";
 import { ItemList } from "@/components/ui/item-list";
 import { getLatest } from "@/lib/content";
 
@@ -32,6 +33,9 @@ export default function NotFound() {
           home page
         </Link>
         .
+      </p>
+      <p className="mt-4">
+        <OpenSearchButton className="min-h-10 rounded-md border border-muted/60 px-4 text-foreground hover:border-muted" />
       </p>
       {latest.length > 0 ? (
         <section aria-labelledby="latest" className="mt-12">

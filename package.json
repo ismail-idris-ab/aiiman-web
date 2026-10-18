@@ -7,6 +7,7 @@
     "content": "velite build --clean --strict",
     "search-index": "tsx scripts/build-search-index.ts",
     "build": "pnpm content && pnpm search-index && next build",
+    "build:e2e": "CONTENT_DIR=tests/e2e/fixtures/content NEXT_PUBLIC_SITE_URL=http://localhost:3100 pnpm build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",

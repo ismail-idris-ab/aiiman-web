@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useId } from "react";
 
 /**
  * Native select: accessible by default, no menu code, and a fixed size so the
@@ -9,10 +10,14 @@ import { useTheme } from "next-themes";
  */
 export function ThemeSelect() {
   const { theme, setTheme } = useTheme();
+  const id = useId();
 
   return (
-    <label className="relative inline-flex h-9 items-center">
-      <span className="sr-only">Colour theme</span>
+    <div className="relative inline-flex h-9 items-center">
+      {/* Separate label so the accessible name is "Colour theme", not the label plus every option. */}
+      <label htmlFor={id} className="sr-only">
+        Colour theme
+      </label>
       <svg
         aria-hidden="true"
         viewBox="0 0 16 16"
@@ -25,6 +30,7 @@ export function ThemeSelect() {
         <path d="M8 2.5v11a5.5 5.5 0 0 0 0-11z" fill="currentColor" />
       </svg>
       <select
+        id={id}
         value={theme ?? "system"}
         onChange={(event) => setTheme(event.target.value)}
         suppressHydrationWarning
@@ -34,6 +40,6 @@ export function ThemeSelect() {
         <option value="light">Light</option>
         <option value="dark">Dark</option>
       </select>
-    </label>
+    </div>
   );
 }
