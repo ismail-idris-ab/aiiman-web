@@ -192,3 +192,4 @@ tests/                  # unit/ and e2e/
 - 2026-10-20 — Lighthouse CI via `pnpm dlx @lhci/cli@0.15.1` (no dependency) with `lighthouserc.json`: mobile, simulated slow 4G, median of 3 runs; fails on Perf < 95, A11y/BP/SEO < 100, LCP > 2 s, CLS > 0.05, TBT > 200 ms. Reports kept as a CI artifact (`filesystem` target) rather than LHCI's public temporary storage.
 - 2026-10-20 — Scheduled publish: `.github/workflows/scheduled-publish.yml` at `5 23 * * *` UTC (00:05 WAT) POSTs the `VERCEL_DEPLOY_HOOK_URL` secret; skips with a warning when unset; `permissions: {}`.
 - 2026-10-20 — Dependabot weekly: npm with minor+patch grouped (majors stay separate PRs for review), GitHub Actions grouped.
+- 2026-10-20 — `typecheck` runs `pnpm content` first — `.velite/` is generated (gitignored), so a fresh clone (CI) had no `#velite` types; caught by the first CI run.

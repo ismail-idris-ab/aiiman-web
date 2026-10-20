@@ -10,7 +10,7 @@
     "build": "pnpm content && pnpm search-index && next build && pnpm check:bundle",
     "build:e2e": "CONTENT_DIR=tests/e2e/fixtures/content NEXT_PUBLIC_SITE_URL=http://localhost:3100 pnpm build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "pnpm content && next typegen && tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
