@@ -8,7 +8,7 @@ import { siteConfig } from "@/site.config";
 import { CopyButton } from "./copy-button";
 import { YouTubeFacade } from "./youtube-facade";
 
-const PROSE_IMAGE_SIZES = "(min-width: 768px) 68ch, 100vw";
+const PROSE_IMAGE_SIZES = "(min-width: 768px) 43rem, 100vw";
 
 function isExternal(href: string): boolean {
   if (!/^https?:\/\//i.test(href)) return false;
@@ -43,15 +43,23 @@ function MdxLink({
   );
 }
 
-type MdxImageProps = ComponentPropsWithoutRef<"img"> & { "data-blur"?: string };
+type MdxImageProps = ComponentPropsWithoutRef<"img"> & {
+  "data-blur"?: string;
+  "data-priority"?: string;
+};
 
-/** Colocated images arrive with width, height and a blur placeholder from the content build. */
+/**
+ * Colocated images arrive with width, height and a blur placeholder from the
+ * content build. An image near the top of the body is flagged `data-priority`
+ * and loads eagerly at high priority (it is usually the LCP element).
+ */
 function MdxImage({
   src,
   alt,
   width,
   height,
   "data-blur": blur,
+  "data-priority": priority,
   title,
 }: MdxImageProps) {
   const w = Number(width);
@@ -75,6 +83,9 @@ function MdxImage({
       height={h}
       title={title}
       sizes={PROSE_IMAGE_SIZES}
+      {...(priority === "true"
+        ? { loading: "eager" as const, fetchPriority: "high" as const }
+        : {})}
       {...(blur === undefined
         ? {}
         : { placeholder: "blur" as const, blurDataURL: blur })}

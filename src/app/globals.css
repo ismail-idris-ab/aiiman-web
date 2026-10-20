@@ -31,6 +31,8 @@
 }
 
 @theme inline {
+  /* Reading measure (~68 characters of the UI font). rem, not ch, so font swaps never resize the layout. */
+  --container-measure: 45rem;
   --color-background: var(--paper);
   --color-foreground: var(--ink);
   --color-muted: var(--ink-muted);
@@ -106,7 +108,8 @@
   font-family: var(--font-serif);
   font-size: 1.125rem;
   line-height: 1.7;
-  max-width: 68ch;
+  /* rem, not ch: ch follows the loaded font, so the column would resize when web fonts swap in (CLS). */
+  max-width: 43rem;
 
   & :where(h2, h3, h4) {
     font-weight: 700;

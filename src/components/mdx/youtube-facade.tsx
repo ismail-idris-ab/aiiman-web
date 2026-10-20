@@ -33,7 +33,7 @@ export function YouTubeFacade({ id, title }: { id: string; title: string }) {
             src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
             alt=""
             fill
-            sizes="(min-width: 768px) 68ch, 100vw"
+            sizes="(min-width: 768px) 43rem, 100vw"
             className="object-cover opacity-90 transition-opacity group-hover:opacity-100"
           />
           <span className="absolute inset-0 m-auto flex h-14 w-20 items-center justify-center rounded-xl bg-black/80 text-white">

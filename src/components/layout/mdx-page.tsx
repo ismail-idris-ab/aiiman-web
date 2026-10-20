@@ -23,7 +23,7 @@ export function MdxPage({ slug, after }: { slug: string; after?: ReactNode }) {
   if (page === undefined) notFound();
 
   return (
-    <article className="max-w-[68ch]">
+    <article className="max-w-measure">
       <h1 className="font-serif text-4xl font-bold tracking-tight">
         {page.title}
       </h1>

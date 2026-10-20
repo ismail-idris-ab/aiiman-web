@@ -22,12 +22,17 @@ const charis = Charis_SIL({
   style: ["normal", "italic"],
   variable: "--font-charis",
   display: "swap",
+  // 8 files (4 styles × 2 subsets, ~280 KB): preloading them all competes with
+  // CSS/JS on slow connections. Text paints at once in the metric-matched
+  // fallback and swaps when the face it actually uses arrives.
+  preload: false,
 });
 
 const onest = Onest({
   subsets: ["latin", "latin-ext"],
   variable: "--font-onest",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {

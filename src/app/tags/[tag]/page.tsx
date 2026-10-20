@@ -43,7 +43,7 @@ export default async function TagPage({ params }: PageProps<"/tags/[tag]">) {
   if (items.length === 0) notFound();
 
   return (
-    <div className="max-w-[68ch]">
+    <div className="max-w-measure">
       <JsonLd data={breadcrumbJsonLd(siteUrl, trailFor(tag))} />
       <Breadcrumbs trail={trailFor(tag)} />
       <h1 className="mt-4 font-serif text-4xl font-bold tracking-tight">

@@ -27,7 +27,7 @@ export default function ProjectsPage() {
   })).filter((group) => group.projects.length > 0);
 
   return (
-    <div className="max-w-[68ch]">
+    <div className="max-w-measure">
       <h1 className="font-serif text-4xl font-bold tracking-tight">Projects</h1>
       <p className="mt-3 font-serif text-xl text-muted">
         Things I&apos;ve shipped and things I&apos;m working on.

@@ -45,7 +45,7 @@ export default function WritingPage() {
   );
 
   return (
-    <div className="max-w-[68ch]">
+    <div className="max-w-measure">
       <h1 className="font-serif text-4xl font-bold tracking-tight">Writing</h1>
       <p className="mt-3 font-serif text-xl leading-relaxed text-muted">
         Everything in one place: essays, notes, tutorials, and links to videos

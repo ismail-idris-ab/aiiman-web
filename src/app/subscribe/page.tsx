@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function SubscribePage() {
   return (
-    <div className="max-w-[68ch]">
+    <div className="max-w-measure">
       <h1 className="font-serif text-4xl font-bold tracking-tight">
         Subscribe
       </h1>

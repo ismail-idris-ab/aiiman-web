@@ -4,6 +4,9 @@
  * 2. Copies colocated images to the public assets dir and stamps their
  *    width, height and blur placeholder onto the node so `next/image`
  *    can render them without layout shift.
+ * 3. Marks the first image as `data-priority` when it sits in the first
+ *    few blocks (likely above the fold, often the LCP element); later
+ *    images stay lazy so readers on metered data only fetch what they see.
  *
  * Replaces Velite's built-in `copyLinkedFiles`, which copies images
  * without recording their dimensions.
@@ -24,6 +27,9 @@ interface ImageNode extends MdNode {
   data?: { hProperties?: Record<string, unknown> };
 }
 
+/** Top-level blocks after which an image is assumed below the fold on a phone. */
+const EARLY_BLOCKS = 3;
+
 const isImageNode = (node: MdNode): node is ImageNode =>
   node.type === "image" && typeof node.url === "string";
 
@@ -38,6 +44,12 @@ export function remarkContent(output: AssetOutput) {
     walk(tree, (node) => {
       if (isImageNode(node) && isRelativePath(node.url)) images.push(node);
     });
+    let priority: ImageNode | undefined;
+    for (const block of (tree.children ?? []).slice(0, EARLY_BLOCKS)) {
+      walk(block, (node) => {
+        if (priority === undefined && isImageNode(node)) priority = node;
+      });
+    }
 
     await Promise.all(
       images.map(async (node) => {
@@ -56,6 +68,7 @@ export function remarkContent(output: AssetOutput) {
             width: image.width,
             height: image.height,
             "data-blur": image.blurDataURL,
+            ...(node === priority ? { "data-priority": "true" } : {}),
           },
         };
       }),

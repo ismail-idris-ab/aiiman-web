@@ -26,7 +26,7 @@ export default function HomePage() {
   const latest = getLatest(LATEST_COUNT);
 
   return (
-    <div className="max-w-[68ch]">
+    <div className="max-w-measure">
       <JsonLd data={homeJsonLd(siteUrl)} />
       <section aria-labelledby="intro">
         <h1

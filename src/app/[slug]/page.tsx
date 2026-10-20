@@ -58,7 +58,7 @@ export default async function EntryPage({ params }: PageProps<"/[slug]">) {
   return (
     <div
       className={
-        showToc ? "lg:grid lg:grid-cols-[minmax(0,68ch)_14rem] lg:gap-16" : ""
+        showToc ? "lg:grid lg:grid-cols-[minmax(0,45rem)_14rem] lg:gap-16" : ""
       }
     >
       <article lang={lang} className="min-w-0">

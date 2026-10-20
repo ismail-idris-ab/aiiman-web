@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function NotFound() {
   const latest = getLatest(5);
   return (
-    <div className="max-w-[68ch]">
+    <div className="max-w-measure">
       <h1 className="font-serif text-4xl font-bold tracking-tight">
         Page not found
       </h1>
