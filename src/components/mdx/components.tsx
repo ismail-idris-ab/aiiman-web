@@ -11,6 +11,8 @@ import { YouTubeFacade } from "./youtube-facade";
 const PROSE_IMAGE_SIZES = "(min-width: 768px) 43rem, 100vw";
 
 function isExternal(href: string): boolean {
+  // Protocol-relative "//host" leaves the site even though it starts with "/".
+  if (href.startsWith("//")) return true;
   if (!/^https?:\/\//i.test(href)) return false;
   return new URL(href).hostname !== siteConfig.domain;
 }
@@ -133,4 +135,14 @@ export const mdxComponents: MDXComponents = {
   Image: MdxImage,
   Callout,
   YouTube,
+};
+
+function LazyMdxImage(props: MdxImageProps) {
+  return <MdxImage {...props} data-priority={undefined} />;
+}
+
+export const mdxComponentsLazyImages: MDXComponents = {
+  ...mdxComponents,
+  img: LazyMdxImage,
+  Image: LazyMdxImage,
 };

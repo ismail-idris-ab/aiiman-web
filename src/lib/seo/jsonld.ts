@@ -193,6 +193,8 @@ export function entryJsonLd(
       { name: "Writing", href: "/writing" },
       { name: entry.title, href: entry.url },
     ]),
+    // Resolves the article's isPartOf reference within this page's graph.
+    websiteNode(siteUrl),
   );
 }
 

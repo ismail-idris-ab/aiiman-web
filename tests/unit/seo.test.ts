@@ -180,6 +180,22 @@ describe("entryMetadata", () => {
       follow: true,
     });
   });
+
+  it("points og:url at an off-site canonical", () => {
+    expect(entryMetadata(SITE, crossPosted, undefined).openGraph?.url).toBe(
+      "https://elsewhere.test/original",
+    );
+  });
+
+  it("drops hreflang when either side of a pair is not indexable", () => {
+    const noindexHausa = { ...hausa, noindex: true };
+    expect(
+      entryMetadata(SITE, english, noindexHausa).alternates?.languages,
+    ).toBe(undefined);
+    expect(
+      entryMetadata(SITE, noindexHausa, english).alternates?.languages,
+    ).toBe(undefined);
+  });
 });
 
 describe("JSON-LD", () => {

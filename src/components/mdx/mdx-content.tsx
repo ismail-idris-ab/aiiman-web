@@ -4,7 +4,7 @@ import type { MDXComponents } from "mdx/types";
 import type { ReactNode } from "react";
 import * as runtime from "react/jsx-runtime";
 
-import { mdxComponents } from "./components";
+import { mdxComponents, mdxComponentsLazyImages } from "./components";
 
 /** Compiled MDX content is a plain function of props with no hooks. */
 type MdxContentFn = (props: { components: MDXComponents }) => ReactNode;
@@ -21,6 +21,15 @@ function evaluate(code: string): MdxContentFn {
   return factory({ ...runtime }).default;
 }
 
-export function MdxContent({ code }: { code: string }) {
-  return evaluate(code)({ components: mdxComponents });
+/** `lazyImages`: the page already shows a priority image (an Entry cover), so none in the body is. */
+export function MdxContent({
+  code,
+  lazyImages = false,
+}: {
+  code: string;
+  lazyImages?: boolean;
+}) {
+  return evaluate(code)({
+    components: lazyImages ? mdxComponentsLazyImages : mdxComponents,
+  });
 }

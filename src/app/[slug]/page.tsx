@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -157,8 +158,27 @@ export default async function EntryPage({ params }: PageProps<"/[slug]">) {
           </ul>
         </header>
 
+        {entry.cover === undefined ? null : (
+          // The cover is the likely LCP element, so it alone loads eagerly; body images stay lazy.
+          <Image
+            src={entry.cover.src}
+            alt={entry.coverAlt ?? ""}
+            width={entry.cover.width}
+            height={entry.cover.height}
+            sizes="(min-width: 768px) 45rem, 100vw"
+            loading="eager"
+            fetchPriority="high"
+            placeholder="blur"
+            blurDataURL={entry.cover.blurDataURL}
+            className="mt-8 h-auto w-full rounded-lg"
+          />
+        )}
+
         <div className="prose-site prose mt-10">
-          <MdxContent code={entry.body} />
+          <MdxContent
+            code={entry.body}
+            lazyImages={entry.cover !== undefined}
+          />
         </div>
 
         <footer className="mt-12 space-y-12" lang="en">

@@ -5,6 +5,22 @@ test("no font preloads compete with the stylesheet", async ({ page }) => {
   await expect(page.locator('link[rel="preload"][as="font"]')).toHaveCount(0);
 });
 
+test("an Entry cover renders as the only high-priority image", async ({
+  page,
+}) => {
+  await page.goto("/e2e-essay-react");
+  const cover = page.locator("article > img").first();
+  await expect(cover).toHaveAttribute(
+    "alt",
+    "A diagram of a number formatter, used as the fixture cover",
+  );
+  await expect(cover).toHaveAttribute("fetchpriority", "high");
+  await expect(cover).toHaveAttribute("width", /\d+/);
+  await expect(page.locator('article img[fetchpriority="high"]')).toHaveCount(
+    1,
+  );
+});
+
 test("the first image near the top of a post loads eagerly at high priority", async ({
   page,
 }) => {

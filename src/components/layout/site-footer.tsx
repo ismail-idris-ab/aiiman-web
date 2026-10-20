@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { getPage } from "@/lib/content";
 import { siteConfig, type SocialKey } from "@/site.config";
 
 const SOCIAL_LABELS: Record<SocialKey, string> = {
@@ -11,14 +12,19 @@ const SOCIAL_LABELS: Record<SocialKey, string> = {
   linkedin: "LinkedIn",
 };
 
-const FOOTER_LINKS = [
+// `page` links show only once that page is published, so the footer never links to a 404.
+const FOOTER_LINKS: ReadonlyArray<{
+  href: string;
+  label: string;
+  page?: string;
+}> = [
   { href: "/writing", label: "Writing" },
   { href: "/projects", label: "Projects" },
-  { href: "/about", label: "About" },
-  { href: "/uses", label: "Uses" },
+  { href: "/about", label: "About", page: "about" },
+  { href: "/uses", label: "Uses", page: "uses" },
   { href: "/subscribe", label: "Subscribe" },
-  { href: "/privacy", label: "Privacy" },
-] as const;
+  { href: "/privacy", label: "Privacy", page: "privacy" },
+];
 
 export function SiteFooter() {
   const socials = (
@@ -35,7 +41,9 @@ export function SiteFooter() {
         </p>
         <nav aria-label="Footer">
           <ul className="grid grid-cols-2 gap-x-8 gap-y-2">
-            {FOOTER_LINKS.map(({ href, label }) => (
+            {FOOTER_LINKS.filter(
+              ({ page }) => page === undefined || getPage(page) !== undefined,
+            ).map(({ href, label }) => (
               <li key={href}>
                 <Link
                   href={href}

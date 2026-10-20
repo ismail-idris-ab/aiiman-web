@@ -170,3 +170,25 @@ export function findCollectionIssues(
 
   return issues;
 }
+
+/** Pages every published page links to (nav, footer, bylines, Person JSON-LD, newsletter consent). */
+export const REQUIRED_PAGES = ["about", "privacy"] as const;
+
+export interface RulePage {
+  slug: string;
+  draft: boolean;
+}
+
+/** Publishing an Item while a required page is still a draft would ship sitewide links to a 404. */
+export function findRequiredPageIssues(
+  items: ReadonlyArray<{ draft: boolean }>,
+  pages: readonly RulePage[],
+): string[] {
+  if (items.every((item) => item.draft)) return [];
+  return REQUIRED_PAGES.filter(
+    (slug) => !pages.some((page) => page.slug === slug && !page.draft),
+  ).map(
+    (slug) =>
+      `content/pages/${slug}.mdx must be published (draft: false) before any Entry or Link: every page links to /${slug}`,
+  );
+}

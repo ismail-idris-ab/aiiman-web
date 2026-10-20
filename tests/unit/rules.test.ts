@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   findBodyIssues,
   findCollectionIssues,
+  findRequiredPageIssues,
   stripMdxComments,
   type MdNode,
   type RuleEntry,
@@ -193,5 +194,31 @@ describe("findCollectionIssues", () => {
         [],
       ).join(),
     ).toContain("already claimed");
+  });
+});
+
+describe("findRequiredPageIssues", () => {
+  const published = [{ draft: false }];
+  const pages = (aboutDraft: boolean, privacyDraft: boolean) => [
+    { slug: "about", draft: aboutDraft },
+    { slug: "privacy", draft: privacyDraft },
+    { slug: "uses", draft: true },
+  ];
+
+  it("passes while every Item is still a draft", () => {
+    expect(
+      findRequiredPageIssues([{ draft: true }], pages(true, true)),
+    ).toEqual([]);
+  });
+
+  it("passes when about and privacy are published", () => {
+    expect(findRequiredPageIssues(published, pages(false, false))).toEqual([]);
+  });
+
+  it("names each required page that is a draft or missing", () => {
+    expect(findRequiredPageIssues(published, pages(true, false))).toEqual([
+      expect.stringContaining("content/pages/about.mdx"),
+    ]);
+    expect(findRequiredPageIssues(published, [])).toHaveLength(2);
   });
 });

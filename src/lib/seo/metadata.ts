@@ -13,7 +13,7 @@ import type { Entry } from "#velite";
 import type { Lang } from "@/lib/content/model";
 import { siteConfig } from "@/site.config";
 
-import { absoluteUrl } from "./urls";
+import { absoluteUrl, isIndexableEntry } from "./urls";
 
 export const FEEDS = {
   rss: {
@@ -85,8 +85,11 @@ export function entryMetadata(
   entry: Entry,
   translation: Entry | undefined,
 ): Metadata {
+  // hreflang only links two indexable, self-canonical pages; Google ignores it otherwise.
   const pair =
-    translation === undefined
+    translation === undefined ||
+    !isIndexableEntry(siteUrl, entry) ||
+    !isIndexableEntry(siteUrl, translation)
       ? undefined
       : entry.lang === "en"
         ? { en: entry, ha: translation }
@@ -110,7 +113,7 @@ export function entryMetadata(
     },
     openGraph: {
       type: "article",
-      url: entry.url,
+      url: entry.canonical ?? entry.url,
       title: entry.title,
       description: entry.summary,
       siteName: siteConfig.name,

@@ -24,6 +24,7 @@ import {
 import { remarkContent } from "./src/lib/content/remark-content";
 import {
   findCollectionIssues,
+  findRequiredPageIssues,
   stripMdxComments,
 } from "./src/lib/content/rules";
 import { visibilityModeFor } from "./src/lib/content/visibility";
@@ -64,6 +65,14 @@ const tags = s
   .max(5, "at most five tags are allowed");
 
 const featured = s.number().int().min(1).max(12).optional();
+
+/** URLs end up in hrefs, feeds and `location.assign`: only https, never `javascript:`/`data:`. */
+const httpsUrl = s
+  .string()
+  .url()
+  .refine((url) => url.startsWith("https://"), {
+    message: "must be an https:// URL",
+  });
 
 function checkDates(
   data: { date: string; updated?: string | undefined },
@@ -113,7 +122,7 @@ const entries = defineCollection({
       translationOf: s.string().optional(),
       cover: s.image().optional(),
       coverAlt: s.string().trim().min(1).optional(),
-      canonical: s.string().url().optional(),
+      canonical: httpsUrl.optional(),
       noindex: s.boolean().default(false),
       draft: s.boolean().default(false),
       redirectFrom: s.array(s.string()).default([]),
@@ -179,7 +188,7 @@ const links = defineCollection({
       }),
       tags,
       featured,
-      externalUrl: s.string().url(),
+      externalUrl: httpsUrl,
       lang: s.enum(LANGS).default("en"),
       draft: s.boolean().default(false),
       path: s.path(),
@@ -206,9 +215,9 @@ const projects = defineCollection({
       name: s.string().min(1),
       summary: s.string().min(1).max(140),
       status: s.enum(PROJECT_STATUSES),
-      url: s.string().url().optional(),
-      playStoreUrl: s.string().url().optional(),
-      repoUrl: s.string().url().optional(),
+      url: httpsUrl.optional(),
+      playStoreUrl: httpsUrl.optional(),
+      repoUrl: httpsUrl.optional(),
       featured: s.boolean().default(false),
       order: s.number().int(),
       draft: s.boolean().default(false),
@@ -251,8 +260,11 @@ export default defineConfig({
       ],
     ],
   },
-  prepare: ({ entries, links }) => {
-    const issues = findCollectionIssues(entries, links);
+  prepare: ({ entries, links, pages }) => {
+    const issues = [
+      ...findCollectionIssues(entries, links),
+      ...findRequiredPageIssues([...entries, ...links], pages),
+    ];
     if (issues.length > 0) {
       throw new Error(
         `Content validation failed:\n  - ${issues.join("\n  - ")}`,

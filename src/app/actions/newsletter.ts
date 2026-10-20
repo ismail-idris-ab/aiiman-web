@@ -12,6 +12,11 @@ import {
   type SubscribeDeps,
   type SubscribeState,
 } from "@/lib/newsletter/subscribe";
+import { createMemoryRateLimit } from "@/lib/newsletter/memory-rate-limit";
+
+/** Sign-up attempts per IP per window: Upstash sliding window, or the in-memory fallback. */
+const RATE_LIMIT = 5;
+const RATE_WINDOW_MS = 10 * 60 * 1000;
 
 /** Structured, email-free server log line. */
 const log: SubscribeDeps["log"] = (event, detail) => {
@@ -26,14 +31,35 @@ const ratelimit =
           url: serverEnv.UPSTASH_REDIS_REST_URL,
           token: serverEnv.UPSTASH_REDIS_REST_TOKEN,
         }),
-        limiter: Ratelimit.slidingWindow(5, "10 m"),
+        limiter: Ratelimit.slidingWindow(RATE_LIMIT, "10 m"),
         prefix: "aiiman:newsletter",
-        // If Upstash is slow or down, let the request through rather than block sign-ups.
+        // If Upstash is slow or down, fall back to the in-memory limiter below.
         timeout: 2000,
       })
     : null;
 
-if (ratelimit === null) log("newsletter.rate_limit_disabled");
+// Always on: without Upstash (or while it's failing) each instance still limits per IP.
+const memoryRateLimit = createMemoryRateLimit({
+  limit: RATE_LIMIT,
+  windowMs: RATE_WINDOW_MS,
+  now: Date.now,
+});
+
+if (ratelimit === null) log("newsletter.rate_limit_memory_only");
+
+async function rateLimit(id: string): Promise<boolean> {
+  if (ratelimit === null) return memoryRateLimit(id);
+  try {
+    const result = await ratelimit.limit(id);
+    if (result.reason !== "timeout") return result.success;
+    log("newsletter.rate_limit_timeout");
+  } catch (error) {
+    log("newsletter.rate_limit_error", {
+      error: error instanceof Error ? error.name : "unknown",
+    });
+  }
+  return memoryRateLimit(id);
+}
 
 export async function subscribeAction(
   _previous: SubscribeState,
@@ -49,20 +75,7 @@ export async function subscribeAction(
 
   const ip = clientIp(await headers());
   return subscribe(formData, ip, {
-    ...(ratelimit === null
-      ? {}
-      : {
-          rateLimit: async (id: string) => {
-            try {
-              return (await ratelimit.limit(id)).success;
-            } catch (error) {
-              log("newsletter.rate_limit_error", {
-                error: error instanceof Error ? error.name : "unknown",
-              });
-              return true;
-            }
-          },
-        }),
+    rateLimit,
     addSubscriber: (email, subscriberIp) =>
       addButtondownSubscriber(email, subscriberIp, { apiKey, fetch, log }),
     log,
