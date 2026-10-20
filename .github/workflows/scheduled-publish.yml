@@ -1,0 +1,26 @@
+# Scheduled posts are hidden until their date (WAT) at build time, so the
+# site is rebuilt daily just after midnight WAT to publish them.
+name: Scheduled publish
+
+on:
+  schedule:
+    - cron: "5 23 * * *" # 00:05 WAT (UTC+1)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Vercel production deploy
+        env:
+          DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::warning::VERCEL_DEPLOY_HOOK_URL secret is not set; skipping."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 30 -X POST "$DEPLOY_HOOK" > /dev/null
+          echo "Deploy hook triggered."

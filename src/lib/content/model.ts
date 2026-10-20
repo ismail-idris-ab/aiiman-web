@@ -52,6 +52,12 @@ export const RESERVED_SLUGS = [
   "static",
   "_next",
   "md",
+  // Generated metadata routes (src/app/icon.tsx etc.).
+  "icon",
+  "apple-icon",
+  "opengraph-image",
+  "manifest.webmanifest",
+  ".well-known",
 ] as const;
 
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
