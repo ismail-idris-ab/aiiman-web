@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    ignore:
+      # Types must match the Node runtime (22, see package.json engines); bump with the runtime.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
