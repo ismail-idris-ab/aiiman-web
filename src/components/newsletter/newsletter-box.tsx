@@ -1,5 +1,7 @@
 import { serverEnv } from "@/env.server";
 
+import { NewsletterForm } from "./newsletter-form";
+
 /**
  * Newsletter sign-up. Until BUTTONDOWN_API_KEY is configured it renders a
  * disabled "coming soon" state instead of a form that would fail.
@@ -11,7 +13,7 @@ export function NewsletterBox({ headingLevel = 2 }: { headingLevel?: 2 | 3 }) {
   return (
     <section
       aria-labelledby="newsletter-heading"
-      className="rounded-lg bg-accent-soft px-5 py-6 sm:px-6"
+      className="relative rounded-lg bg-accent-soft px-5 py-6 sm:px-6"
     >
       <Heading id="newsletter-heading" className="font-serif text-xl font-bold">
         Get new posts by email
@@ -20,7 +22,9 @@ export function NewsletterBox({ headingLevel = 2 }: { headingLevel?: 2 | 3 }) {
         One email when something new is published. No spam, unsubscribe any
         time.
       </p>
-      {enabled ? null : (
+      {enabled ? (
+        <NewsletterForm />
+      ) : (
         <p className="mt-3 text-sm text-muted" role="status">
           Newsletter coming soon. Follow the{" "}
           <a href="/rss.xml" className="text-accent underline">

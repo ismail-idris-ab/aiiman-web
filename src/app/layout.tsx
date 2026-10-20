@@ -1,3 +1,5 @@
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
 import { Charis_SIL, Onest } from "next/font/google";
 
@@ -87,6 +89,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </main>
           <SiteFooter />
         </ThemeProvider>
+        {/* Cookieless; scripts are served same-origin from /_vercel/*, which exists only on Vercel. */}
+        {serverEnv.VERCEL_ENV === undefined ? null : (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        )}
       </body>
     </html>
   );

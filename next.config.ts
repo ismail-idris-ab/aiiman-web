@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
+import { securityHeaders } from "./src/lib/security/headers";
 import { isIndexableDeploy } from "./src/lib/seo/deploy";
 
 const ENTRIES_JSON = ".velite/entries.json";
@@ -54,16 +55,18 @@ export default async function config(phase: string): Promise<NextConfig> {
     rewrites: async () => [
       { source: "/:slug([a-z0-9-]+)\\.md", destination: "/md/:slug" },
     ],
-    headers: async () =>
-      isIndexableDeploy(process.env.VERCEL_ENV)
-        ? []
-        : [
-            {
-              // Preview deploys must never be indexed (robots.txt disallows too).
-              source: "/:path*",
-              headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
-            },
-          ],
+    headers: async () => [
+      {
+        source: "/:path*",
+        headers: [
+          ...securityHeaders(phase === PHASE_DEVELOPMENT_SERVER),
+          // Preview deploys must never be indexed (robots.txt disallows too).
+          ...(isIndexableDeploy(process.env.VERCEL_ENV)
+            ? []
+            : [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]),
+        ],
+      },
+    ],
     turbopack: {
       rules: {
         "*.css": {
