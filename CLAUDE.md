@@ -193,3 +193,4 @@ tests/                  # unit/ and e2e/
 - 2026-10-20 — Scheduled publish: `.github/workflows/scheduled-publish.yml` at `5 23 * * *` UTC (00:05 WAT) POSTs the `VERCEL_DEPLOY_HOOK_URL` secret; skips with a warning when unset; `permissions: {}`.
 - 2026-10-20 — Dependabot weekly: npm with minor+patch grouped (majors stay separate PRs for review), GitHub Actions grouped.
 - 2026-10-20 — `typecheck` runs `pnpm content` first — `.velite/` is generated (gitignored), so a fresh clone (CI) had no `#velite` types; caught by the first CI run.
+- 2026-10-20 — Fonts `display: "optional"` (owner choice), supersedes "swap": next/font sizes its fallback against Arial/Times New Roman, which Android and Linux lack, so swapping in Charis/Onest shifted layout 0.05–0.12 in CI (Linux) — the same happens on Android phones. Optional never swaps after first paint; brand fonts show once cached. Hausa letters still render via the system fonts (Noto/Roboto cover them).

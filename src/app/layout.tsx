@@ -15,23 +15,27 @@ import { siteConfig } from "@/site.config";
 
 import "./globals.css";
 
-/* Both families verified to contain the Hausa hooked letters ɓ ɗ ƙ ƴ (and capitals) in latin-ext. */
+/*
+ * Both families verified to contain the Hausa hooked letters ɓ ɗ ƙ ƴ (and capitals) in latin-ext.
+ *
+ * display: optional, no preload — the web font is used only if it is ready at first
+ * paint (e.g. cached), so text never reflows mid-read. With "swap", Android/Linux
+ * (no Arial/Times New Roman for next/font's size-matched fallback) shifted 0.05–0.12.
+ * Preloading all faces (~345 KB) delayed the CSS on slow 4G.
+ */
 const charis = Charis_SIL({
   subsets: ["latin", "latin-ext"],
   weight: ["400", "700"],
   style: ["normal", "italic"],
   variable: "--font-charis",
-  display: "swap",
-  // 8 files (4 styles × 2 subsets, ~280 KB): preloading them all competes with
-  // CSS/JS on slow connections. Text paints at once in the metric-matched
-  // fallback and swaps when the face it actually uses arrives.
+  display: "optional",
   preload: false,
 });
 
 const onest = Onest({
   subsets: ["latin", "latin-ext"],
   variable: "--font-onest",
-  display: "swap",
+  display: "optional",
   preload: false,
 });
 
