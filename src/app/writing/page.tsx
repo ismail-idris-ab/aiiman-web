@@ -7,12 +7,15 @@ import type { ArchiveItemMeta } from "@/lib/archive-filter";
 import { getItems, getTags, type Item } from "@/lib/content";
 import { ITEM_TYPES, LANGS } from "@/lib/content/model";
 import { yearOf } from "@/lib/format";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { siteConfig } from "@/site.config";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Writing",
   description: `Every essay, note, tutorial, video and talk by ${siteConfig.author.name}, newest first. Filter by type, tag or language.`,
-};
+  // Always the bare path: filter query strings never become canonical URLs.
+  path: "/writing",
+});
 
 const LIST_ID = "archive-list";
 const itemId = (item: Item) => `${item.kind}:${item.slug}`;

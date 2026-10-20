@@ -5,9 +5,9 @@ import { OpenSearchButton } from "@/components/search/search-dialog";
 import { ItemList } from "@/components/ui/item-list";
 import { getLatest } from "@/lib/content";
 
+/** Next adds `<meta name="robots" content="noindex">` to not-found responses itself; setting robots here would duplicate it. */
 export const metadata: Metadata = {
   title: "Page not found",
-  robots: { index: false, follow: true },
 };
 
 export default function NotFound() {

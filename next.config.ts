@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
+import { isIndexableDeploy } from "./src/lib/seo/deploy";
+
 const ENTRIES_JSON = ".velite/entries.json";
 
 /** Old slug → current slug, from each Entry's `redirectFrom` (validated at content build). */
@@ -48,6 +50,20 @@ export default async function config(phase: string): Promise<NextConfig> {
       ],
     },
     redirects: async () => entryRedirects(),
+    // `/<slug>.md` is served by the route handler at src/app/md/[slug].
+    rewrites: async () => [
+      { source: "/:slug([a-z0-9-]+)\\.md", destination: "/md/:slug" },
+    ],
+    headers: async () =>
+      isIndexableDeploy(process.env.VERCEL_ENV)
+        ? []
+        : [
+            {
+              // Preview deploys must never be indexed (robots.txt disallows too).
+              source: "/:path*",
+              headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+            },
+          ],
     turbopack: {
       rules: {
         "*.css": {

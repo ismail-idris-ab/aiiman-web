@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
 import { NewsletterBox } from "@/components/newsletter/newsletter-box";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { siteConfig } from "@/site.config";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Subscribe",
   description: `Get new essays, notes and tutorials from ${siteConfig.author.name} by email, or follow along with the RSS and JSON feeds.`,
-};
+  path: "/subscribe",
+});
 
 export default function SubscribePage() {
   return (

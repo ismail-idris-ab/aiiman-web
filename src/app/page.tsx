@@ -1,10 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
+import { JsonLd } from "@/components/layout/json-ld";
 import { NewsletterBox } from "@/components/newsletter/newsletter-box";
 import { ItemList } from "@/components/ui/item-list";
 import { ProjectLinks } from "@/components/ui/project-links";
+import { siteUrl } from "@/env";
 import { getFeatured, getFeaturedProjects, getLatest } from "@/lib/content";
+import { homeJsonLd } from "@/lib/seo/jsonld";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { siteConfig } from "@/site.config";
+
+export const metadata: Metadata = pageMetadata({
+  title: `${siteConfig.author.name}, ${siteConfig.author.jobTitle.toLowerCase()} · ${siteConfig.name}`,
+  absoluteTitle: true,
+  description: `${siteConfig.author.bio} Essays, notes, tutorials and talks.`,
+  path: "/",
+});
 
 const LATEST_COUNT = 6;
 
@@ -15,6 +27,7 @@ export default function HomePage() {
 
   return (
     <div className="max-w-[68ch]">
+      <JsonLd data={homeJsonLd(siteUrl)} />
       <section aria-labelledby="intro">
         <h1
           id="intro"

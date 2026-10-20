@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { JsonLd } from "@/components/layout/json-ld";
 import { MdxContent } from "@/components/mdx/mdx-content";
 import { NewsletterBox } from "@/components/newsletter/newsletter-box";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -11,6 +12,7 @@ import {
   countHeadings,
 } from "@/components/ui/table-of-contents";
 import { TypeBadge } from "@/components/ui/type-badge";
+import { siteUrl } from "@/env";
 import {
   getAdjacent,
   getEntries,
@@ -21,6 +23,9 @@ import {
 } from "@/lib/content";
 import { LANG_LABELS } from "@/lib/content/model";
 import { formatDate, formatReadingTime, isoDay } from "@/lib/format";
+import { entryJsonLd } from "@/lib/seo/jsonld";
+import { entryMetadata } from "@/lib/seo/metadata";
+import { absoluteUrl, entryOgImagePath } from "@/lib/seo/urls";
 import { siteConfig } from "@/site.config";
 
 export const dynamicParams = false;
@@ -34,7 +39,7 @@ export async function generateMetadata({
 }: PageProps<"/[slug]">): Promise<Metadata> {
   const entry = getEntry((await params).slug);
   if (entry === undefined) return {};
-  return { title: entry.title, description: entry.summary };
+  return entryMetadata(siteUrl, entry, getTranslation(entry));
 }
 
 const TOC_MIN_HEADINGS = 3;
@@ -57,6 +62,13 @@ export default async function EntryPage({ params }: PageProps<"/[slug]">) {
       }
     >
       <article lang={lang} className="min-w-0">
+        <JsonLd
+          data={entryJsonLd(
+            siteUrl,
+            entry,
+            absoluteUrl(siteUrl, entryOgImagePath(entry)),
+          )}
+        />
         <header>
           <Breadcrumbs
             trail={[

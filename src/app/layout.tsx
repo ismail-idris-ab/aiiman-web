@@ -7,6 +7,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SearchDialog } from "@/components/search/search-dialog";
 import { siteUrl } from "@/env";
+import { serverEnv } from "@/env.server";
+import { feedAlternates } from "@/lib/seo/metadata";
 import { siteConfig } from "@/site.config";
 
 import "./globals.css";
@@ -34,6 +36,22 @@ export const metadata: Metadata = {
   },
   description: siteConfig.author.bio,
   authors: [{ name: siteConfig.author.name, url: `${siteUrl}/about` }],
+  // No canonical here: each page sets its own, and the 404 page must have none.
+  alternates: { types: feedAlternates },
+  openGraph: { siteName: siteConfig.name, locale: "en_GB", type: "website" },
+  twitter: {
+    card: "summary_large_image",
+    site: siteConfig.twitterHandle,
+    creator: siteConfig.twitterHandle,
+  },
+  verification: {
+    ...(serverEnv.GOOGLE_SITE_VERIFICATION === undefined
+      ? {}
+      : { google: serverEnv.GOOGLE_SITE_VERIFICATION }),
+    ...(serverEnv.BING_SITE_VERIFICATION === undefined
+      ? {}
+      : { other: { "msvalidate.01": serverEnv.BING_SITE_VERIFICATION } }),
+  },
 };
 
 export const viewport: Viewport = {

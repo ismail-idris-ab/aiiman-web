@@ -3,12 +3,14 @@ import type { Metadata } from "next";
 import { ProjectLinks } from "@/components/ui/project-links";
 import { getProjects } from "@/lib/content";
 import { PROJECT_STATUSES, type ProjectStatus } from "@/lib/content/model";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { siteConfig } from "@/site.config";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Projects",
   description: `Products ${siteConfig.author.name} has built and is building for Nigerian and African users, from live apps to experiments.`,
-};
+  path: "/projects",
+});
 
 const STATUS_HEADINGS: Record<ProjectStatus, string> = {
   live: "Live",

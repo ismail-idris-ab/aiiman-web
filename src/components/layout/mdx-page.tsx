@@ -5,11 +5,16 @@ import type { ReactNode } from "react";
 import { MdxContent } from "@/components/mdx/mdx-content";
 import { getPage } from "@/lib/content";
 import { formatDate, isoDay } from "@/lib/format";
+import { pageMetadata } from "@/lib/seo/metadata";
 
 export function mdxPageMetadata(slug: string): Metadata {
   const page = getPage(slug);
   if (page === undefined) return {};
-  return { title: page.title, description: page.summary };
+  return pageMetadata({
+    title: page.title,
+    description: page.summary,
+    path: `/${slug}`,
+  });
 }
 
 /** Renders a page from content/pages/<slug>.mdx; 404s while the page is a draft in production. */
