@@ -4,7 +4,7 @@
  */
 
 export type SocialKey =
-  "x" | "github" | "youtube" | "tiktok" | "instagram" | "linkedin";
+  "x" | "github" | "youtube" | "tiktok" | "instagram" | "facebook" | "linkedin";
 
 export interface SiteConfig {
   name: string;
@@ -49,10 +49,11 @@ export const siteConfig: SiteConfig = {
   twitterHandle: "@aiiman_ai",
   socials: {
     x: "https://x.com/aiiman_ai",
-    github: null,
+    github: "https://github.com/ismail-idris-ab",
     youtube: null,
-    tiktok: null,
-    instagram: null,
+    tiktok: "https://www.tiktok.com/@aiiman.ai",
+    instagram: "https://www.instagram.com/aiiman001.ai",
+    facebook: "https://www.facebook.com/profile.php?id=61591573653599",
     linkedin: null,
   },
 };

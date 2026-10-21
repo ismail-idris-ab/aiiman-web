@@ -26,6 +26,7 @@ import {
   type JsonLdDocument,
 } from "@/lib/seo/jsonld";
 import { entryMetadata, pageMetadata } from "@/lib/seo/metadata";
+import { siteConfig } from "@/site.config";
 import { entryOgImagePath, isIndexableEntry } from "@/lib/seo/urls";
 
 import { entry, link, page } from "./fixtures";
@@ -257,7 +258,7 @@ describe("JSON-LD", () => {
     const person = home["@graph"][1];
     expect(person).toMatchObject({
       "@id": `${SITE}/#person`,
-      sameAs: ["https://x.com/aiiman_ai"],
+      sameAs: Object.values(siteConfig.socials).filter((url) => url !== null),
     });
     const about = profilePageJsonLd(SITE, page("about", { title: "About" }));
     expect(about["@graph"][0]).toMatchObject({
@@ -399,6 +400,7 @@ describe("security.txt", () => {
         youtube: null,
         tiktok: null,
         instagram: null,
+        facebook: null,
         linkedin: null,
       },
     });
@@ -414,6 +416,7 @@ describe("security.txt", () => {
       youtube: null,
       tiktok: null,
       instagram: null,
+      facebook: null,
       linkedin: null,
     };
     expect(

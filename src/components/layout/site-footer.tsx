@@ -9,6 +9,7 @@ const SOCIAL_LABELS: Record<SocialKey, string> = {
   youtube: "YouTube",
   tiktok: "TikTok",
   instagram: "Instagram",
+  facebook: "Facebook",
   linkedin: "LinkedIn",
 };
 
