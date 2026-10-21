@@ -45,7 +45,7 @@ export const siteConfig: SiteConfig = {
       "React Native",
     ],
   },
-  email: null,
+  email: "aiimanern001@gmail.com",
   twitterHandle: "@aiiman_ai",
   socials: {
     x: "https://x.com/aiiman_ai",
