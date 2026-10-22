@@ -4,4 +4,4 @@ summary: Android app that announces confirmed bank payments aloud in Hausa for t
 status: building
 featured: true
 order: 2
-draft: true
+draft: false

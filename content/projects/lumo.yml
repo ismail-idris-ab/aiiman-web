@@ -4,4 +4,4 @@ summary: Classifieds marketplace.
 status: building
 featured: true
 order: 1
-draft: true
+draft: false
