@@ -1,26 +1,28 @@
 # dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.*
 
 # testing
-/coverage
-/playwright-report
-/test-results
-/blob-report
-/playwright/.cache
+coverage
+playwright-report
+test-results
+blob-report
+playwright/.cache
+.lighthouseci/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build
+dist
 
 # generated content
-/.velite
-/public/static
-/public/search-index.json
+.velite
+apps/web/public/static
+apps/web/public/search-index.json
 
 # misc
 .DS_Store
@@ -40,4 +42,3 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-.lighthouseci/
