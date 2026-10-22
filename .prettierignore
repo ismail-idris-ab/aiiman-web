@@ -10,3 +10,4 @@ apps/web/public/search-index.json
 **/.lighthouseci
 CLAUDE.md
 **/AGENTS.md
+.cache

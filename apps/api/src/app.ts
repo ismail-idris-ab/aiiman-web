@@ -3,23 +3,31 @@ import express, {
   type Express,
   type RequestHandler,
 } from "express";
+import { authRouter, type AuthDeps } from "./auth/routes.js";
+import { requireSameOrigin } from "./http/origin.js";
 
 export type Logger = (event: string, fields?: Record<string, unknown>) => void;
 
-export interface AppDeps {
+/** Thrown when a dependency (the database) isn't configured or reachable. */
+export class ServiceUnavailableError extends Error {
+  override name = "ServiceUnavailableError";
+}
+
+export interface AppDeps extends AuthDeps {
   /** Resolves true when the database answers a ping. */
   checkDatabase: () => Promise<boolean>;
-  log: Logger;
 }
 
 const notFound: RequestHandler = (_req, res) => {
   res.status(404).json({ error: "Not found" });
 };
 
-export function createApp({ checkDatabase, log }: AppDeps): Express {
+export function createApp(deps: AppDeps): Express {
+  const { checkDatabase, log } = deps;
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "100kb" }));
+  app.use("/api", requireSameOrigin);
 
   app.get("/api/health", async (_req, res) => {
     const database = await checkDatabase().catch((error: unknown) => {
@@ -32,10 +40,21 @@ export function createApp({ checkDatabase, log }: AppDeps): Express {
       .json({ api: "ok", database: database ? "ok" : "down" });
   });
 
+  app.use("/api/auth", authRouter(deps));
+
   app.use(notFound);
 
   const onError: ErrorRequestHandler = (error: unknown, _req, res, next) => {
     if (res.headersSent) return next(error);
+    if (error instanceof ServiceUnavailableError) {
+      res.status(503).json({ error: "Service unavailable. Try again soon." });
+      return;
+    }
+    // Malformed JSON bodies from express.json().
+    if (isClientError(error)) {
+      res.status(400).json({ error: "Invalid request" });
+      return;
+    }
     log("api.unhandled_error", { error: errorName(error) });
     res.status(500).json({ error: "Something went wrong" });
   };
@@ -45,6 +64,12 @@ export function createApp({ checkDatabase, log }: AppDeps): Express {
 }
 
 /** Error class name only: messages can carry connection strings or user data. */
-function errorName(error: unknown): string {
+export function errorName(error: unknown): string {
   return error instanceof Error ? error.name : typeof error;
+}
+
+function isClientError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const status = (error as { status?: unknown }).status;
+  return typeof status === "number" && status >= 400 && status < 500;
 }
