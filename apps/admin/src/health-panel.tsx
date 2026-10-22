@@ -6,7 +6,7 @@ const LABELS: Record<keyof Health, string> = {
   database: "Database",
 };
 
-export function HealthPage() {
+export function HealthPanel() {
   const [health, setHealth] = useState<Health | null>(null);
 
   useEffect(() => {
@@ -20,9 +20,8 @@ export function HealthPage() {
   }, []);
 
   return (
-    <main>
-      <h1>Aiiman admin</h1>
-      <h2>System status</h2>
+    <section aria-labelledby="status-heading">
+      <h2 id="status-heading">System status</h2>
       {health === null ? (
         <p role="status">Checking…</p>
       ) : (
@@ -35,6 +34,6 @@ export function HealthPage() {
           ))}
         </dl>
       )}
-    </main>
+    </section>
   );
 }
