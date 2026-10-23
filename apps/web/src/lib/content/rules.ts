@@ -3,7 +3,7 @@
  * without running Velite.
  */
 
-import { REQUIRED_PAGES } from "@aiiman/shared";
+import { REQUIRED_PAGES } from "@aiiman/shared/vocab";
 
 import { RESERVED_SLUGS, SLUG_PATTERN, type Lang } from "./model";
 

@@ -1,6 +1,8 @@
 /**
  * Content vocabulary shared by the site, the admin and the API.
- * See GLOSSARY.md for what each term means.
+ * See GLOSSARY.md for what each term means. No dependencies: the site's
+ * client components import it via `@aiiman/shared/vocab`, and Zod in the
+ * browser would trip the CSP (it probes `new Function`) and add weight.
  */
 
 export const ENTRY_TYPES = ["essay", "note", "tutorial", "snippet"] as const;
@@ -68,3 +70,14 @@ export const REQUIRED_PAGES = ["about", "privacy"] as const;
 
 /** Calendar dates (publication, scheduling) are read in West Africa Time. */
 export const CONTENT_TIME_ZONE = "Africa/Lagos";
+
+/** Calendar date (YYYY-MM-DD) of `now` in the given IANA time zone. */
+export function calendarDate(now: Date, timeZone: string): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}

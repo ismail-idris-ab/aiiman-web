@@ -184,3 +184,14 @@ describe("missingRequiredPages", () => {
     expect(missingRequiredPages(["about", "privacy", "uses"])).toEqual([]);
   });
 });
+
+describe("vocab entry point", () => {
+  it("imports nothing, so the site's client bundle never pulls in Zod", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile(
+      new URL("../src/vocab.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).not.toMatch(/^\s*import\s/m);
+  });
+});

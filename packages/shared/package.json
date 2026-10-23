@@ -11,6 +11,10 @@
     "./preview-token": {
       "types": "./src/preview-token.ts",
       "default": "./dist/preview-token.js"
+    },
+    "./vocab": {
+      "types": "./src/vocab.ts",
+      "default": "./dist/vocab.js"
     }
   },
   "scripts": {
