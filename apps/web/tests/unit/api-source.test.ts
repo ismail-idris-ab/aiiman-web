@@ -141,14 +141,42 @@ describe("fetchPublishedPosts", () => {
     );
   });
 
-  it("rejects bodies outside the allowlist", async () => {
+  it("re-normalises bodies, dropping anything outside the allowlist", async () => {
     const bad = {
       ...post,
-      body: { type: "doc", content: [{ type: "script" }] },
+      body: {
+        type: "doc",
+        content: [
+          { type: "script", content: [{ type: "text", text: "alert(1)" }] },
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: "x",
+                marks: [
+                  { type: "link", attrs: { href: "javascript:alert(1)" } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     };
+    const [received] = await fetchPublishedPosts(
+      "https://admin.example",
+      async () => Response.json({ posts: [bad] }),
+    );
+    expect(received?.body).toEqual({
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "x" }] }],
+    });
+  });
+
+  it("rejects responses of the wrong shape", async () => {
     await expect(
       fetchPublishedPosts("https://admin.example", async () =>
-        Response.json({ posts: [bad] }),
+        Response.json({ posts: [{ slug: 1 }] }),
       ),
     ).rejects.toThrow();
   });

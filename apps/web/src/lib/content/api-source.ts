@@ -4,8 +4,12 @@
  */
 
 import {
+  docToc,
+  docToMarkdown,
   docToText,
   previewPostSchema,
+  readingMinutes,
+  wordCount,
   publicPostListSchema,
   type Doc,
   type PreviewPost,
@@ -31,9 +35,6 @@ export function contentApiUrlFor(env: ApiSourceEnv): string | undefined {
   return env.CONTENT_API_URL;
 }
 
-// Velite's default, so reading times match MDX Entries.
-const WORDS_PER_MINUTE = 265;
-
 /** Calendar dates are stored like Velite's frontmatter dates: UTC midnight. */
 const calendarIso = (day: string) => `${day}T00:00:00.000Z`;
 
@@ -41,8 +42,6 @@ export function postToEntry(
   post: PublicPost,
   { draft = false }: { draft?: boolean } = {},
 ): Entry & { doc: Doc } {
-  const text = docToText(post.body);
-  const wordCount = text.split(/\s+/).filter((word) => word !== "").length;
   return {
     title: post.title,
     summary: post.summary,
@@ -56,17 +55,18 @@ export function postToEntry(
     noindex: post.noindex,
     draft,
     redirectFrom: [],
-    toc: [],
+    toc: docToc(post.body),
     body: "",
     doc: post.body,
     kind: "entry",
     slug: post.slug,
     url: `/${post.slug}`,
     source: `admin:${post.slug}`,
-    raw: text,
-    readingTime: Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE)),
-    wordCount,
-    plainText: text,
+    // Markdown for the .md route and llms.txt; plain text for search.
+    raw: docToMarkdown(post.body),
+    readingTime: readingMinutes(post.body),
+    wordCount: wordCount(post.body),
+    plainText: docToText(post.body),
   };
 }
 

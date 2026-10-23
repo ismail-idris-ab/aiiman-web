@@ -1,16 +1,102 @@
 import "server-only";
 
-import type { Doc } from "@aiiman/shared";
+import {
+  docHeadings,
+  type Block,
+  type Doc,
+  type Inline,
+  type ListItem,
+} from "@aiiman/shared";
+import { Fragment, type ReactNode } from "react";
+
+import { Callout, MdxLink } from "@/components/mdx/components";
 
 /**
- * Renders a Tiptap doc from the admin as React elements. Only node types in
- * the shared allowlist exist (the API and the site both validate against it),
- * and text is always rendered as text, never as HTML.
+ * Renders a post body from the admin as React Server Components, with the
+ * same elements, heading anchors, links and callouts the MDX pipeline
+ * produces. The doc is already normalised against the shared allowlist, and
+ * text is only ever rendered as text, never as HTML.
  */
 export function DocContent({ doc }: { doc: Doc }) {
-  return doc.content.map((paragraph, index) =>
-    paragraph.content === undefined ? null : (
-      <p key={index}>{paragraph.content.map((node) => node.text).join("")}</p>
-    ),
-  );
+  // Ids in document order, made like rehype-slug does for MDX.
+  const ids = docHeadings(doc).map((heading) => heading.id);
+  let next = 0;
+  const nextId = () => ids[next++] ?? "";
+
+  /** `linked`: inside a heading anchor, where a nested link would be invalid HTML. */
+  const inline = (
+    content: readonly Inline[] | undefined,
+    linked = false,
+  ): ReactNode =>
+    (content ?? []).map((node, index) => {
+      if (node.type === "hardBreak") return <br key={index} />;
+      let out: ReactNode = node.text;
+      const marks = node.marks ?? [];
+      if (marks.some((mark) => mark.type === "code")) out = <code>{out}</code>;
+      if (marks.some((mark) => mark.type === "italic")) out = <em>{out}</em>;
+      if (marks.some((mark) => mark.type === "bold"))
+        out = <strong>{out}</strong>;
+      const link = marks.find((mark) => mark.type === "link");
+      if (link?.type === "link" && !linked)
+        out = <MdxLink href={link.attrs.href}>{out}</MdxLink>;
+      return <Fragment key={index}>{out}</Fragment>;
+    });
+
+  // A one-paragraph item renders like a tight Markdown list item: no <p> inside.
+  const items = (list: readonly ListItem[]) =>
+    list.map((item, index) => {
+      const [only, ...rest] = item.content;
+      return (
+        <li key={index}>
+          {only?.type === "paragraph" && rest.length === 0
+            ? inline(only.content)
+            : blocks(item.content)}
+        </li>
+      );
+    });
+
+  const block = (node: Block, index: number): ReactNode => {
+    switch (node.type) {
+      case "paragraph":
+        return node.content === undefined ? null : (
+          <p key={index}>{inline(node.content)}</p>
+        );
+      case "heading": {
+        const Tag = `h${node.attrs.level}` as const;
+        const id = nextId();
+        if (id === "") return <Tag key={index}>{inline(node.content)}</Tag>;
+        // rehype-autolink-headings "wrap": the heading text links to itself.
+        return (
+          <Tag key={index} id={id}>
+            <a className="heading-anchor" href={`#${id}`}>
+              {inline(node.content, true)}
+            </a>
+          </Tag>
+        );
+      }
+      case "bulletList":
+        return <ul key={index}>{items(node.content)}</ul>;
+      case "orderedList":
+        return (
+          <ol
+            key={index}
+            start={node.attrs.start === 1 ? undefined : node.attrs.start}
+          >
+            {items(node.content)}
+          </ol>
+        );
+      case "blockquote":
+        return <blockquote key={index}>{blocks(node.content)}</blockquote>;
+      case "callout":
+        return (
+          <Callout key={index} title={node.attrs.title}>
+            {blocks(node.content)}
+          </Callout>
+        );
+    }
+  };
+
+  const blocks = (content: readonly Block[]): ReactNode => content.map(block);
+
+  return blocks(doc.content);
 }

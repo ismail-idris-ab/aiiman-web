@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   calendarDate,
-  docSchema,
-  docToText,
   missingRequiredPages,
   postInputSchema,
   publicPostSchema,
@@ -33,59 +31,6 @@ const errorsFor = (override: Record<string, unknown>) => {
         ]),
       );
 };
-
-describe("textToDoc / docToText", () => {
-  it("splits on blank lines and collapses other whitespace", () => {
-    const doc = textToDoc("  One\nline  \n\n\n Two \r\n\r\nThree\n");
-    expect(doc.content.map((p) => p.content?.[0]?.text)).toEqual([
-      "One line",
-      "Two",
-      "Three",
-    ]);
-  });
-
-  it("round-trips paragraphs", () => {
-    expect(docToText(textToDoc("One\n\nTwo"))).toBe("One\n\nTwo");
-  });
-
-  it("returns an empty doc for blank text", () => {
-    expect(textToDoc(" \n\n ").content).toEqual([]);
-  });
-});
-
-describe("docSchema", () => {
-  it("accepts empty paragraphs as Tiptap emits them", () => {
-    expect(
-      docSchema.safeParse({ type: "doc", content: [{ type: "paragraph" }] })
-        .success,
-    ).toBe(true);
-  });
-
-  it("rejects node types outside the allowlist", () => {
-    const doc = {
-      type: "doc",
-      content: [{ type: "html", content: [{ type: "text", text: "<b>" }] }],
-    };
-    expect(docSchema.safeParse(doc).success).toBe(false);
-  });
-
-  it("strips unknown keys", () => {
-    const parsed = docSchema.parse({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          attrs: { onclick: "x" },
-          content: [{ type: "text", text: "Hi" }],
-        },
-      ],
-    });
-    expect(parsed.content[0]).toEqual({
-      type: "paragraph",
-      content: [{ type: "text", text: "Hi" }],
-    });
-  });
-});
 
 describe("postInputSchema", () => {
   it("accepts a valid post and trims title and summary", () => {
