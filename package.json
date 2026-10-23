@@ -2,12 +2,13 @@
   "name": "aiiman-monorepo",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @aiiman/web dev",
-    "dev:admin": "pnpm --parallel --filter @aiiman/api --filter @aiiman/admin dev",
-    "build": "pnpm --filter @aiiman/web build",
-    "typecheck": "pnpm -r typecheck",
+    "build:shared": "pnpm --filter @aiiman/shared build",
+    "dev": "pnpm build:shared && pnpm --filter @aiiman/web dev",
+    "dev:admin": "pnpm build:shared && pnpm --parallel --filter @aiiman/api --filter @aiiman/admin dev",
+    "build": "pnpm build:shared && pnpm --filter @aiiman/web build",
+    "typecheck": "pnpm build:shared && pnpm -r typecheck",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
+    "test": "pnpm build:shared && pnpm -r test",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

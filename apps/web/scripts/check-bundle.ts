@@ -18,6 +18,7 @@ const SECRET_KEYS = [
   "BUTTONDOWN_API_KEY",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
+  "REVALIDATE_SECRET",
 ] as const;
 const FORBIDDEN_STRINGS = ["api.buttondown", "upstash.io"];
 

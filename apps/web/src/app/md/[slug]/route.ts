@@ -7,17 +7,19 @@ import { canonicalUrl } from "@/lib/seo/urls";
 
 /** Raw Markdown of each Entry. Public URL is `/<slug>.md` (rewritten in next.config). */
 export const dynamic = "force-static";
-export const dynamicParams = false;
+// Posts published in the admin after the build render on first request, then stay cached
+// until /api/revalidate expires them. Unknown slugs still 404.
+export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return getEntries().map((entry) => ({ slug: entry.slug }));
+export async function generateStaticParams() {
+  return (await getEntries()).map((entry) => ({ slug: entry.slug }));
 }
 
 export async function GET(
   _request: Request,
   { params }: RouteContext<"/md/[slug]">,
 ) {
-  const entry = getEntry((await params).slug);
+  const entry = await getEntry((await params).slug);
   if (entry === undefined) notFound();
   return new Response(buildEntryMarkdown(siteUrl, entry), {
     headers: {

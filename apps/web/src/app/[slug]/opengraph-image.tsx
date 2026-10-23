@@ -11,10 +11,12 @@ import { siteConfig } from "@/site.config";
  * generateStaticParams is used and every card is prerendered at build.
  * The trade-off is one alt text for all cards; og:title carries the title.
  */
-export const dynamicParams = false;
+// Posts published in the admin after the build render on first request, then stay cached
+// until /api/revalidate expires them. Unknown slugs still 404.
+export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return getEntries().map((entry) => ({ slug: entry.slug }));
+export async function generateStaticParams() {
+  return (await getEntries()).map((entry) => ({ slug: entry.slug }));
 }
 
 export const alt = `Title card for a post on ${siteConfig.name}, showing its title, type and date`;
@@ -26,7 +28,7 @@ export default async function Image({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const entry = getEntry((await params).slug);
+  const entry = await getEntry((await params).slug);
   if (entry === undefined) notFound();
   const date = formatDate(entry.date);
   return renderOgCard({
