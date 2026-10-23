@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { postInputSchema } from "@aiiman/shared";
+import {
+  calendarDate,
+  CONTENT_TIME_ZONE,
+  missingRequiredPages,
+  OPTIONAL_POST_FIELDS,
+  postInputSchema,
+  type PostInput,
+} from "@aiiman/shared";
 import {
   Router,
   type NextFunction,
@@ -9,16 +16,16 @@ import {
 } from "express";
 import type { z } from "zod";
 import { currentUser, type AuthDeps } from "../auth/routes.js";
-import type { SiteRevalidator } from "../revalidate.js";
+import { SiteUnavailableError, type SiteClient } from "../site.js";
 import {
-  SlugTakenError,
+  DuplicateFieldError,
   type Post,
   type PostChanges,
   type User,
 } from "../store.js";
 
 export interface PostDeps extends AuthDeps {
-  revalidateSite: SiteRevalidator;
+  site: SiteClient;
 }
 
 /** Admins and editors work on every post; authors only on their own. */
@@ -30,8 +37,13 @@ export function canPublish(user: User): boolean {
   return user.role === "admin" || user.role === "editor";
 }
 
-const SLUG_TAKEN = "Another post already uses this slug";
+const DUPLICATE: Record<DuplicateFieldError["field"], string> = {
+  slug: "Another post already uses this slug",
+  featured: "Another post already has this featured position",
+};
 const PUBLISHED_SLUG = "A published post keeps its slug";
+const SITE_UNAVAILABLE =
+  "Previews need the site connection. Try again, or check SITE_URL and SITE_API_SECRET.";
 
 /** Field path → first message, for showing errors next to form fields. */
 function fieldErrors(error: z.ZodError): Record<string, string> {
@@ -47,8 +59,17 @@ function userOf(res: Response): User {
   return res.locals.user as User;
 }
 
+function postOf(res: Response): Post {
+  return res.locals.post as Post;
+}
+
+/** Optional fields the input leaves out, which an edit clears. */
+function absentFields(input: PostInput): string[] {
+  return OPTIONAL_POST_FIELDS.filter((key) => input[key] === undefined);
+}
+
 export function postsRouter(deps: PostDeps): Router {
-  const { getStores, log, now, revalidateSite } = deps;
+  const { getStores, log, now, site } = deps;
   const router = Router();
 
   const requireUser: RequestHandler = async (req, res, next) => {
@@ -90,8 +111,11 @@ export function postsRouter(deps: PostDeps): Router {
     return parsed.data;
   };
 
-  const slugTaken = (res: Response) =>
-    res.status(409).json({ error: SLUG_TAKEN, fields: { slug: SLUG_TAKEN } });
+  const duplicate = (res: Response, error: DuplicateFieldError) =>
+    res.status(409).json({
+      error: DUPLICATE[error.field],
+      fields: { [error.field]: DUPLICATE[error.field] },
+    });
 
   router.use(requireUser);
 
@@ -122,7 +146,8 @@ export function postsRouter(deps: PostDeps): Router {
     try {
       await stores.posts.insert(post);
     } catch (error) {
-      if (error instanceof SlugTakenError) return void slugTaken(res);
+      if (error instanceof DuplicateFieldError)
+        return void duplicate(res, error);
       throw error;
     }
     log("posts.created", { postId: post.id, userId: user.id });
@@ -130,21 +155,23 @@ export function postsRouter(deps: PostDeps): Router {
   });
 
   router.get("/:id", loadPost, (_req, res) => {
-    res.json({ post: res.locals.post as Post });
+    res.json({ post: postOf(res) });
   });
 
   const save = async (
     res: Response,
     post: Post,
     changes: PostChanges,
+    unset: readonly string[],
     event: string,
   ) => {
     const stores = await getStores();
     let saved: Post | null;
     try {
-      saved = await stores.posts.update(post.id, changes);
+      saved = await stores.posts.update(post.id, changes, unset);
     } catch (error) {
-      if (error instanceof SlugTakenError) return void slugTaken(res);
+      if (error instanceof DuplicateFieldError)
+        return void duplicate(res, error);
       throw error;
     }
     if (saved === null) {
@@ -155,7 +182,7 @@ export function postsRouter(deps: PostDeps): Router {
     // Only published content is on the site, so drafts never need a refresh.
     const revalidated =
       saved.status === "published" || post.status === "published"
-        ? await revalidateSite()
+        ? await site.revalidate()
         : false;
     res.json({ post: saved, revalidated });
   };
@@ -163,7 +190,7 @@ export function postsRouter(deps: PostDeps): Router {
   router.put("/:id", loadPost, async (req, res) => {
     const input = parseInput(req, res);
     if (input === undefined) return;
-    const post = res.locals.post as Post;
+    const post = postOf(res);
     // Changing a live URL needs a permanent redirect, which arrives with previous slugs.
     if (post.status === "published" && input.slug !== post.slug) {
       res.status(409).json({
@@ -172,7 +199,15 @@ export function postsRouter(deps: PostDeps): Router {
       });
       return;
     }
-    await save(res, post, { ...input, updatedAt: now() }, "posts.updated");
+    // A published post always has a date; clearing it keeps the original.
+    const keepDate = post.status === "published" && input.date === undefined;
+    await save(
+      res,
+      post,
+      { ...input, ...(keepDate ? { date: post.date } : {}), updatedAt: now() },
+      absentFields(input).filter((key) => !(keepDate && key === "date")),
+      "posts.updated",
+    );
   });
 
   router.post("/:id/publish", loadPost, async (_req, res) => {
@@ -180,7 +215,7 @@ export function postsRouter(deps: PostDeps): Router {
       res.status(403).json({ error: "Only editors and admins can publish" });
       return;
     }
-    const post = res.locals.post as Post;
+    const post = postOf(res);
     // A post saved before the content rules tightened must still pass them to go live.
     const valid = postInputSchema.safeParse(post);
     if (!valid.success) {
@@ -190,17 +225,54 @@ export function postsRouter(deps: PostDeps): Router {
       });
       return;
     }
+    const stores = await getStores();
+    const missing = missingRequiredPages(await stores.pages.publishedSlugs());
+    if (missing.length > 0) {
+      res.status(409).json({
+        error: `Publish these pages first, every page links to them: ${missing.join(", ")}`,
+      });
+      return;
+    }
     const time = now();
     await save(
       res,
       post,
       {
         status: "published",
+        date: post.date ?? calendarDate(time, CONTENT_TIME_ZONE),
         publishedAt: post.publishedAt ?? time,
         updatedAt: time,
       },
+      [],
       "posts.published",
     );
+  });
+
+  /** Search result, share card and reader links for the saved version of the post. */
+  router.post("/:id/preview", loadPost, async (_req, res) => {
+    const post = postOf(res);
+    try {
+      const search = await site.searchPreview(post.id);
+      res.json({
+        search,
+        // Same origin as the admin, so its strict CSP allows the image.
+        shareImageUrl: `/api/posts/${encodeURIComponent(post.id)}/share-image?v=${post.updatedAt.getTime()}`,
+        readerUrl: site.readerUrl(post.id),
+      });
+    } catch (error) {
+      if (!(error instanceof SiteUnavailableError)) throw error;
+      res.status(503).json({ error: SITE_UNAVAILABLE });
+    }
+  });
+
+  router.get("/:id/share-image", loadPost, async (_req, res) => {
+    try {
+      const image = await site.shareImage(postOf(res).id);
+      res.type("png").send(Buffer.from(image));
+    } catch (error) {
+      if (!(error instanceof SiteUnavailableError)) throw error;
+      res.status(503).json({ error: SITE_UNAVAILABLE });
+    }
   });
 
   return router;

@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getEntries, getEntry } from "@/lib/content";
-import { LANG_LABELS, TYPE_LABELS } from "@/lib/content/model";
-import { formatDate } from "@/lib/format";
+import { entryOgCard } from "@/lib/seo/entry-og";
 import { OG_CONTENT_TYPE, OG_SIZE, renderOgCard } from "@/lib/seo/og-card";
 import { siteConfig } from "@/site.config";
 
@@ -30,10 +29,5 @@ export default async function Image({
 }) {
   const entry = await getEntry((await params).slug);
   if (entry === undefined) notFound();
-  const date = formatDate(entry.date);
-  return renderOgCard({
-    title: entry.title,
-    badge: TYPE_LABELS[entry.type],
-    meta: entry.lang === "en" ? date : `${date}, ${LANG_LABELS[entry.lang]}`,
-  });
+  return renderOgCard(entryOgCard(entry));
 }

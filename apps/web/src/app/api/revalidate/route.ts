@@ -9,7 +9,7 @@ import { isAuthorizedRevalidation } from "@/lib/revalidate";
  * every page built from content, so the next request renders fresh data.
  */
 export function POST(request: Request) {
-  const secret = serverEnv.REVALIDATE_SECRET;
+  const secret = serverEnv.SITE_API_SECRET;
   // Exists only where the site reads admin posts (previews until switch-over).
   if (!readsAdminPosts || secret === undefined) {
     return Response.json({ error: "Not found" }, { status: 404 });

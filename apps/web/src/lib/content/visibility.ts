@@ -5,6 +5,8 @@
  * - "published" (production builds): only non-draft Items whose date has arrived in WAT.
  */
 
+import { calendarDate } from "@aiiman/shared";
+
 export type VisibilityMode = "authoring" | "published";
 
 export interface VisibilityEnv {
@@ -19,16 +21,7 @@ export function visibilityModeFor(env: VisibilityEnv): VisibilityMode {
   return env.NODE_ENV === "development" ? "authoring" : "published";
 }
 
-/** Calendar date (YYYY-MM-DD) of `now` in the given IANA time zone. */
-export function calendarDate(now: Date, timeZone: string): string {
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
+export { calendarDate };
 
 /** Frontmatter dates are calendar dates; Velite stores them as UTC-midnight ISO strings. */
 export const dateKey = (isoDate: string): string => isoDate.slice(0, 10);

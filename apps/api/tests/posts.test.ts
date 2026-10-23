@@ -19,7 +19,7 @@ import {
   type Role,
   type Stores,
 } from "../src/store.js";
-import { request, testDeps } from "./helpers.js";
+import { request, testDeps, testSite } from "./helpers.js";
 
 let mongod: MongoMemoryServer;
 let client: MongoClient;
@@ -76,6 +76,10 @@ const input = (overrides: Record<string, unknown> = {}) => ({
   summary:
     "A summary long enough to pass the fifty character minimum for posts.",
   slug: "written-in-the-admin",
+  type: "essay",
+  tags: ["web"],
+  lang: "en",
+  noindex: false,
   body: textToDoc("First paragraph.\n\nSecond paragraph."),
   ...overrides,
 });
@@ -169,11 +173,11 @@ describe("/api/posts", () => {
   });
 
   it("publishes, keeps the first publish time and asks the site to refresh", async () => {
-    const revalidateSite = vi.fn(async () => true);
+    const revalidate = vi.fn(async () => true);
     let clock = new Date("2026-10-22T09:00:00Z");
-    const a = app({ revalidateSite, now: () => clock });
+    const a = app({ site: testSite({ revalidate }), now: () => clock });
     const { id } = await createPost(a, "author");
-    expect(revalidateSite).not.toHaveBeenCalled();
+    expect(revalidate).not.toHaveBeenCalled();
 
     const res = await publish(a, id, "editor");
     expect(res.status).toBe(200);
@@ -181,7 +185,7 @@ describe("/api/posts", () => {
       post: { status: "published", publishedAt: "2026-10-22T09:00:00.000Z" },
       revalidated: true,
     });
-    expect(revalidateSite).toHaveBeenCalledTimes(1);
+    expect(revalidate).toHaveBeenCalledTimes(1);
 
     clock = new Date("2026-10-23T09:00:00Z");
     const edit = await request(a, `/api/posts/${id}`, {
@@ -195,11 +199,11 @@ describe("/api/posts", () => {
         updatedAt: "2026-10-23T09:00:00.000Z",
       },
     });
-    expect(revalidateSite).toHaveBeenCalledTimes(2);
+    expect(revalidate).toHaveBeenCalledTimes(2);
   });
 
   it("still publishes when the site can't be refreshed", async () => {
-    const a = app({ revalidateSite: async () => false });
+    const a = app({ site: testSite({ revalidate: async () => false }) });
     const { id } = await createPost(a);
     const res = await publish(a, id);
     expect(res.status).toBe(200);
@@ -245,6 +249,11 @@ describe("/api/public", () => {
           slug: "written-in-the-admin",
           title: "Written in the admin",
           summary: input().summary,
+          type: "essay",
+          tags: ["web"],
+          lang: "en",
+          date: "2026-10-22",
+          noindex: false,
           publishedAt: "2026-10-22T09:00:00.000Z",
           updatedAt: "2026-10-22T09:00:00.000Z",
           authorName: "Name of author",

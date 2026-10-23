@@ -127,3 +127,29 @@ export function entryMetadata(
     ...(entry.noindex ? { robots: { index: false, follow: true } } : {}),
   };
 }
+
+/** The layout's title template: every page title but the home page's ends with the site name. */
+export const TITLE_TEMPLATE = `%s · ${siteConfig.name}`;
+
+export interface SearchPreview {
+  /** The `<title>` as rendered. */
+  title: string;
+  description: string;
+  /** The URL search engines show: the canonical one. */
+  url: string;
+  /** False when the Entry is `noindex`. */
+  indexed: boolean;
+}
+
+/** What a search result for an Entry shows, from the same fields its metadata uses. */
+export function entrySearchPreview(
+  siteUrl: string,
+  entry: Entry,
+): SearchPreview {
+  return {
+    title: TITLE_TEMPLATE.replace("%s", entry.title),
+    description: entry.summary,
+    url: entry.canonical ?? absoluteUrl(siteUrl, entry.url),
+    indexed: !entry.noindex,
+  };
+}

@@ -4,6 +4,7 @@ import type { Express } from "express";
 import { vi } from "vitest";
 import type { AppDeps } from "../src/app.js";
 import { createMemoryLimiter } from "../src/auth/limiter.js";
+import type { SiteClient } from "../src/site.js";
 import type { Stores } from "../src/store.js";
 
 export interface RequestOptions {
@@ -50,6 +51,22 @@ export async function request(
   }
 }
 
+/** A site that answers every call; tests override what they exercise. */
+export function testSite(overrides: Partial<SiteClient> = {}): SiteClient {
+  return {
+    revalidate: async () => true,
+    readerUrl: (id) => `https://site.example/api/draft?post=${id}`,
+    searchPreview: async () => ({
+      title: "Title · Aiiman",
+      description: "Description",
+      url: "https://site.example/a-post",
+      indexed: true,
+    }),
+    shareImage: async () => new Uint8Array([137, 80, 78, 71]).buffer,
+    ...overrides,
+  };
+}
+
 /** Defaults for every dependency; tests override what they exercise. */
 export function testDeps(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
@@ -60,7 +77,8 @@ export function testDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     limiter: createMemoryLimiter(),
     log: vi.fn(),
     now: () => new Date(),
-    revalidateSite: async () => true,
+    siteSecret: undefined,
+    site: testSite(),
     ...overrides,
   };
 }

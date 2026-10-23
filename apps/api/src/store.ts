@@ -1,4 +1,4 @@
-import type { Doc, PostStatus } from "@aiiman/shared";
+import type { PostInput, PostStatus } from "@aiiman/shared";
 import { MongoServerError, type Collection, type Db } from "mongodb";
 
 export const ROLES = ["admin", "editor", "author"] as const;
@@ -28,28 +28,26 @@ export interface Session {
   expiresAt: Date;
 }
 
-export interface Post {
+/** A post: the fields a writer edits plus workflow state. Optional fields are absent when unset. */
+export type Post = PostInput & {
   id: string;
-  slug: string;
-  title: string;
-  summary: string;
-  body: Doc;
   status: PostStatus;
   authorId: string;
   createdAt: Date;
   updatedAt: Date;
   /** First publication time; kept when a published post is edited. */
   publishedAt: Date | null;
-}
+};
 
-export type PostChanges = Partial<
-  Pick<Post, "slug" | "title" | "summary" | "body" | "status" | "publishedAt">
-> &
+export type PostChanges = Partial<Omit<Post, "id" | "authorId" | "createdAt">> &
   Pick<Post, "updatedAt">;
 
-/** Another post already uses the slug. */
-export class SlugTakenError extends Error {
-  override name = "SlugTakenError";
+/** Another post already uses this slug or featured position. */
+export class DuplicateFieldError extends Error {
+  override name = "DuplicateFieldError";
+  constructor(readonly field: "slug" | "featured") {
+    super(`duplicate ${field}`);
+  }
 }
 
 export interface Stores {
@@ -63,13 +61,24 @@ export interface Stores {
     /** Every post, most recently updated first. */
     list(): Promise<Post[]>;
     findById(id: string): Promise<Post | null>;
-    /** Throws SlugTakenError when the slug is in use. */
+    /** Throws DuplicateFieldError when the slug or featured position is in use. */
     insert(post: Post): Promise<void>;
-    /** Throws SlugTakenError when the slug is in use; null when the post is gone. */
-    update(id: string, changes: PostChanges): Promise<Post | null>;
+    /**
+     * Sets `changes` and removes the `unset` fields. Throws DuplicateFieldError
+     * like insert; null when the post is gone.
+     */
+    update(
+      id: string,
+      changes: PostChanges,
+      unset?: readonly string[],
+    ): Promise<Post | null>;
     /** Published posts only, newest first. */
     listPublished(): Promise<Post[]>;
     findPublishedBySlug(slug: string): Promise<Post | null>;
+  };
+  pages: {
+    /** Slugs of published pages, or null while pages still live in the site's MDX (#20). */
+    publishedSlugs(): Promise<string[] | null>;
   };
   sessions: {
     insert(session: Session): Promise<void>;
@@ -81,6 +90,10 @@ export interface Stores {
 type UserDoc = Omit<User, "id"> & { _id: string };
 type SessionDoc = Omit<Session, "tokenHash"> & { _id: string };
 type PostDoc = Omit<Post, "id"> & { _id: string };
+interface PageDoc {
+  _id: string;
+  status: PostStatus;
+}
 
 function fromUserDoc({ _id, ...rest }: UserDoc): User {
   return { id: _id, ...rest };
@@ -92,15 +105,25 @@ function fromPostDoc({ _id, ...rest }: PostDoc): Post {
 
 const DUPLICATE_KEY = 11000;
 
-async function slugSafe<T>(write: () => Promise<T>): Promise<T> {
+async function uniqueSafe<T>(write: () => Promise<T>): Promise<T> {
   try {
     return await write();
   } catch (error) {
     if (error instanceof MongoServerError && error.code === DUPLICATE_KEY) {
-      throw new SlugTakenError();
+      const keys = Object.keys((error.keyPattern ?? {}) as object);
+      throw new DuplicateFieldError(
+        keys.includes("featured") ? "featured" : "slug",
+      );
     }
     throw error;
   }
+}
+
+/** The driver stores `undefined` as null; absent fields must stay absent. */
+function defined<T extends object>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, field]) => field !== undefined),
+  ) as T;
 }
 
 export function normaliseEmail(email: string): string {
@@ -113,6 +136,7 @@ export function createMongoStores(db: Db): Stores {
   const users: Collection<UserDoc> = db.collection("users");
   const sessions: Collection<SessionDoc> = db.collection("sessions");
   const posts: Collection<PostDoc> = db.collection("posts");
+  const pages: Collection<PageDoc> = db.collection("pages");
 
   // Once per instance. The TTL index lets MongoDB delete expired sessions itself.
   indexesReady ??= Promise.all([
@@ -120,7 +144,15 @@ export function createMongoStores(db: Db): Stores {
     sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     sessions.createIndex({ userId: 1 }),
     posts.createIndex({ slug: 1 }, { unique: true }),
-    posts.createIndex({ status: 1, publishedAt: -1 }),
+    // Featured positions are unique across posts, drafts included (as in the MDX build).
+    posts.createIndex(
+      { featured: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { featured: { $exists: true } },
+      },
+    ),
+    posts.createIndex({ status: 1, date: -1 }),
   ]);
 
   return {
@@ -158,14 +190,21 @@ export function createMongoStores(db: Db): Stores {
       },
       async insert({ id, ...rest }) {
         await indexesReady;
-        await slugSafe(() => posts.insertOne({ _id: id, ...rest }));
+        await uniqueSafe(() => posts.insertOne(defined({ _id: id, ...rest })));
       },
-      async update(id, changes) {
+      async update(id, changes, unset = []) {
         await indexesReady;
-        const doc = await slugSafe(() =>
+        const doc = await uniqueSafe(() =>
           posts.findOneAndUpdate(
             { _id: id },
-            { $set: changes },
+            {
+              $set: defined(changes),
+              ...(unset.length === 0
+                ? {}
+                : {
+                    $unset: Object.fromEntries(unset.map((key) => [key, ""])),
+                  }),
+            },
             { returnDocument: "after" },
           ),
         );
@@ -174,13 +213,20 @@ export function createMongoStores(db: Db): Stores {
       async listPublished() {
         const docs = await posts
           .find({ status: "published" })
-          .sort({ publishedAt: -1, slug: 1 })
+          .sort({ date: -1, publishedAt: -1, slug: 1 })
           .toArray();
         return docs.map(fromPostDoc);
       },
       async findPublishedBySlug(slug) {
         const doc = await posts.findOne({ slug, status: "published" });
         return doc === null ? null : fromPostDoc(doc);
+      },
+    },
+    pages: {
+      async publishedSlugs() {
+        if ((await pages.estimatedDocumentCount()) === 0) return null;
+        const docs = await pages.find({ status: "published" }).toArray();
+        return docs.map((doc) => doc._id);
       },
     },
     sessions: {

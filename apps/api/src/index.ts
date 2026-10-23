@@ -7,7 +7,7 @@ import {
 } from "./auth/limiter.js";
 import { getClient, pingDatabase } from "./db.js";
 import { parseEnv } from "./env.js";
-import { createSiteRevalidator } from "./revalidate.js";
+import { createSiteClient } from "./site.js";
 import { createMongoStores, type Stores } from "./store.js";
 
 const env = parseEnv(process.env);
@@ -51,11 +51,13 @@ const app = createApp({
   },
   limiter: limiter(),
   log,
-  revalidateSite: createSiteRevalidator({
-    url: env.SITE_REVALIDATE_URL,
-    secret: env.SITE_REVALIDATE_SECRET,
+  siteSecret: env.SITE_API_SECRET,
+  site: createSiteClient({
+    url: env.SITE_URL,
+    secret: env.SITE_API_SECRET,
     protectionBypass: env.SITE_PROTECTION_BYPASS,
     log,
+    now: () => new Date(),
   }),
   now: () => new Date(),
 });
