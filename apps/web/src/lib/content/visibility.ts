@@ -5,7 +5,7 @@
  * - "published" (production builds): only non-draft Items whose date has arrived in WAT.
  */
 
-import { calendarDate } from "@aiiman/shared";
+import { calendarDate } from "@aiiman/shared/vocab";
 
 export type VisibilityMode = "authoring" | "published";
 

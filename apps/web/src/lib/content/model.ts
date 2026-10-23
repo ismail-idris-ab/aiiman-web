@@ -18,7 +18,7 @@ export {
   type ItemType,
   type Lang,
   type LinkType,
-} from "@aiiman/shared";
+} from "@aiiman/shared/vocab";
 
 export const PROJECT_STATUSES = [
   "live",

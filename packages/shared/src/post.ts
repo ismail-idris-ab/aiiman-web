@@ -137,17 +137,6 @@ export const previewPostSchema = publicPostSchema.extend({
 
 export type PreviewPost = z.infer<typeof previewPostSchema>;
 
-/** Calendar date (YYYY-MM-DD) of `now` in the given IANA time zone. */
-export function calendarDate(now: Date, timeZone: string): string {
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
-
 /**
  * Required pages that are not published yet. `publishedPages` is null while
  * pages still live in the site's MDX, whose build enforces the same rule.

@@ -221,3 +221,4 @@ tests/                  # unit/ and e2e/
 - 2026-10-22 — One shared secret, `SITE_API_SECRET` (both apps), replaces `REVALIDATE_SECRET`/`SITE_REVALIDATE_SECRET`; the API's `SITE_URL` (origin) replaces `SITE_REVALIDATE_URL`. Nothing was deployed with the old names.
 - 2026-10-22 — The admin-posts fetch sends `x-site-deployment: <VERCEL_DEPLOYMENT_ID>`: Next's data cache matches on headers and outlives a build, and a local rebuild was caught serving the previous build's (older-shape) API response. Locally the key is constant, so clear `.next/cache/fetch-cache` after changing the API's response shape.
 
+- 2026-10-22 — The site imports shared vocabulary only via `@aiiman/shared/vocab` (no dependencies; a test fails if it gains an import). Client components reach `model.ts`, and the package root pulls in Zod, whose `new Function` probe tripped the production CSP (Lighthouse Best Practices 0.96 on PR #27) and added Zod to the browser bundle.
