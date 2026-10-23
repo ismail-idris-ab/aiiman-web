@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { JsonLd } from "@/components/layout/json-ld";
 import { MdxContent } from "@/components/mdx/mdx-content";
+import { DocContent } from "@/components/post/doc-content";
 import { NewsletterBox } from "@/components/newsletter/newsletter-box";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ItemList } from "@/components/ui/item-list";
@@ -29,31 +30,33 @@ import { entryMetadata } from "@/lib/seo/metadata";
 import { absoluteUrl, entryOgImagePath } from "@/lib/seo/urls";
 import { siteConfig } from "@/site.config";
 
-export const dynamicParams = false;
+// Posts published in the admin after the build render on first request, then stay cached
+// until /api/revalidate expires them. Unknown slugs still 404.
+export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return getEntries().map((entry) => ({ slug: entry.slug }));
+export async function generateStaticParams() {
+  return (await getEntries()).map((entry) => ({ slug: entry.slug }));
 }
 
 export async function generateMetadata({
   params,
 }: PageProps<"/[slug]">): Promise<Metadata> {
-  const entry = getEntry((await params).slug);
+  const entry = await getEntry((await params).slug);
   if (entry === undefined) return {};
-  return entryMetadata(siteUrl, entry, getTranslation(entry));
+  return entryMetadata(siteUrl, entry, await getTranslation(entry));
 }
 
 const TOC_MIN_HEADINGS = 3;
 
 export default async function EntryPage({ params }: PageProps<"/[slug]">) {
-  const entry = getEntry((await params).slug);
+  const entry = await getEntry((await params).slug);
   if (entry === undefined) notFound();
 
-  const translation = getTranslation(entry);
-  const related = getRelated(entry);
-  const { older, newer } = getAdjacent(entry);
+  const translation = await getTranslation(entry);
+  const related = await getRelated(entry);
+  const { older, newer } = await getAdjacent(entry);
   const showToc = countHeadings(entry.toc) >= TOC_MIN_HEADINGS;
-  const reason = previewReason(entry);
+  const reason = await previewReason(entry);
   const lang = entry.lang === "en" ? undefined : entry.lang;
 
   return (
@@ -175,10 +178,14 @@ export default async function EntryPage({ params }: PageProps<"/[slug]">) {
         )}
 
         <div className="prose-site prose mt-10">
-          <MdxContent
-            code={entry.body}
-            lazyImages={entry.cover !== undefined}
-          />
+          {entry.doc === undefined ? (
+            <MdxContent
+              code={entry.body}
+              lazyImages={entry.cover !== undefined}
+            />
+          ) : (
+            <DocContent doc={entry.doc} />
+          )}
         </div>
 
         <footer className="mt-12 space-y-12" lang="en">

@@ -12,12 +12,24 @@ const envSchema = z
     MONGODB_DB: z.string().min(1).default("aiiman"),
     UPSTASH_REDIS_REST_URL: z.url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+    SITE_REVALIDATE_URL: z.url().optional(),
+    SITE_REVALIDATE_SECRET: z
+      .string()
+      .min(32, "SITE_REVALIDATE_SECRET must be at least 32 characters")
+      .optional(),
+    SITE_PROTECTION_BYPASS: z.string().min(1).optional(),
   })
   .refine(
     (env) =>
       (env.UPSTASH_REDIS_REST_URL === undefined) ===
       (env.UPSTASH_REDIS_REST_TOKEN === undefined),
     "set both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, or neither",
+  )
+  .refine(
+    (env) =>
+      (env.SITE_REVALIDATE_URL === undefined) ===
+      (env.SITE_REVALIDATE_SECRET === undefined),
+    "set both SITE_REVALIDATE_URL and SITE_REVALIDATE_SECRET, or neither",
   );
 
 export type Env = z.infer<typeof envSchema>;

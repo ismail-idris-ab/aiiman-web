@@ -24,6 +24,10 @@ export const serverEnvSchema = z
     UPSTASH_REDIS_REST_TOKEN: optional(z.string().trim().min(1)),
     GOOGLE_SITE_VERIFICATION: optional(z.string().trim().min(1)),
     BING_SITE_VERIFICATION: optional(z.string().trim().min(1)),
+    // The admin API whose published posts previews show (ignored in production until switch-over).
+    CONTENT_API_URL: optional(z.url({ protocol: /^https?$/ })),
+    // Shared with the API; it authenticates calls to /api/revalidate.
+    REVALIDATE_SECRET: optional(z.string().trim().min(32)),
   })
   .refine(
     (env) =>

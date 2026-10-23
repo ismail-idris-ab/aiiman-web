@@ -3,7 +3,9 @@
  * injected, so the same logic serves the app, build scripts and unit tests.
  */
 
-import type { Entry, Link, Page, Project } from "#velite";
+import type { Link, Page, Project } from "#velite";
+
+import type { Entry } from "./api-source";
 
 import type { ItemType, Lang } from "./model";
 import { isScheduled, isVisible, type VisibilityMode } from "./visibility";

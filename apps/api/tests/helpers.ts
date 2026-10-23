@@ -60,6 +60,7 @@ export function testDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     limiter: createMemoryLimiter(),
     log: vi.fn(),
     now: () => new Date(),
+    revalidateSite: async () => true,
     ...overrides,
   };
 }

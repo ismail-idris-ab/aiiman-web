@@ -18,15 +18,15 @@ const trailFor = (tag: string) => [
 
 export const dynamicParams = false;
 
-export function generateStaticParams() {
-  return getTags().map(({ tag }) => ({ tag }));
+export async function generateStaticParams() {
+  return (await getTags()).map(({ tag }) => ({ tag }));
 }
 
 export async function generateMetadata({
   params,
 }: PageProps<"/tags/[tag]">): Promise<Metadata> {
   const { tag } = await params;
-  const count = getTagCount(tag);
+  const count = await getTagCount(tag);
   if (count === 0) return {};
   return pageMetadata({
     title: `#${tag}`,
@@ -39,7 +39,7 @@ export async function generateMetadata({
 
 export default async function TagPage({ params }: PageProps<"/tags/[tag]">) {
   const { tag } = await params;
-  const items = getByTag(tag);
+  const items = await getByTag(tag);
   if (items.length === 0) notFound();
 
   return (

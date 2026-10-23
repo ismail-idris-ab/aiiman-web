@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "pnpm --filter @aiiman/shared build",
     "dev": "tsx watch --env-file-if-exists=.env.local src/dev.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -11,6 +12,7 @@
     "create-admin": "tsx --env-file-if-exists=.env.local scripts/create-admin.ts"
   },
   "dependencies": {
+    "@aiiman/shared": "workspace:*",
     "@node-rs/argon2": "^2.2.2",
     "@upstash/redis": "^1.39.0",
     "express": "^5.3.0",

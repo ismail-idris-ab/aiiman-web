@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "content": "velite build --clean --strict",
+    "dev": "pnpm --filter @aiiman/shared build && next dev",
+    "content": "pnpm --filter @aiiman/shared build && velite build --clean --strict",
     "search-index": "tsx scripts/build-search-index.ts",
     "check:bundle": "tsx scripts/check-bundle.ts",
     "build": "pnpm content && pnpm search-index && next build && pnpm check:bundle",
@@ -17,6 +17,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
+    "@aiiman/shared": "workspace:*",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
     "@vercel/analytics": "^2.0.1",

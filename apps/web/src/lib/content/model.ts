@@ -3,6 +3,8 @@
  * See GLOSSARY.md for what each term means.
  */
 
+import { SLUG_PATTERN } from "@aiiman/shared";
+
 export const ENTRY_TYPES = ["essay", "note", "tutorial", "snippet"] as const;
 export const LINK_TYPES = ["video", "podcast", "talk", "guest-post"] as const;
 export const ITEM_TYPES = [...ENTRY_TYPES, ...LINK_TYPES] as const;
@@ -33,34 +35,9 @@ export const TYPE_LABELS: Record<ItemType, string> = {
 
 export const LANG_LABELS: Record<Lang, string> = { en: "English", ha: "Hausa" };
 
-/** Top-level paths owned by routes; no Entry slug may use them. */
-export const RESERVED_SLUGS = [
-  "about",
-  "uses",
-  "privacy",
-  "projects",
-  "writing",
-  "tags",
-  "subscribe",
-  "search",
-  "api",
-  "rss.xml",
-  "feed.json",
-  "sitemap.xml",
-  "robots.txt",
-  "llms.txt",
-  "static",
-  "_next",
-  "md",
-  // Generated metadata routes (src/app/icon.tsx etc.).
-  "icon",
-  "apple-icon",
-  "opengraph-image",
-  "manifest.webmanifest",
-  ".well-known",
-] as const;
+// Shared with the admin and the API so all three reserve the same slugs.
+export { RESERVED_SLUGS, SLUG_PATTERN } from "@aiiman/shared";
 
-export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const TAG_PATTERN = SLUG_PATTERN;
 
 /** A tag page is indexable once it lists at least this many Items. */
