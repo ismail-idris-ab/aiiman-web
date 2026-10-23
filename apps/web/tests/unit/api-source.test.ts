@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   contentApiUrlFor,
   fetchPublishedPosts,
-  mergeEntries,
+  mergeAdminPosts,
   postToEntry,
 } from "@/lib/content/api-source";
 import { createContentQueries } from "@/lib/content/queries";
@@ -14,7 +14,12 @@ const post: PublicPost = {
   title: "Written in the admin",
   summary:
     "A summary long enough to pass the fifty character minimum for posts.",
-  // 23:30 UTC is already the next day in WAT.
+  type: "tutorial",
+  tags: ["web", "nigeria"],
+  lang: "ha",
+  date: "2026-10-22",
+  featured: 3,
+  noindex: false,
   publishedAt: "2026-10-21T23:30:00.000Z",
   updatedAt: "2026-10-21T23:30:00.000Z",
   authorName: "Ismail Idris",
@@ -41,13 +46,18 @@ describe("contentApiUrlFor", () => {
 
 describe("postToEntry", () => {
   it("maps a published post onto an Entry", () => {
-    const entry = postToEntry(post, "Africa/Lagos");
-    expect(entry).toMatchObject({
+    expect(postToEntry(post)).toMatchObject({
       kind: "entry",
       slug: "written-in-the-admin",
       url: "/written-in-the-admin",
+      type: "tutorial",
+      tags: ["web", "nigeria"],
+      lang: "ha",
+      featured: 3,
       date: "2026-10-22T00:00:00.000Z",
       updated: undefined,
+      canonical: undefined,
+      noindex: false,
       draft: false,
       raw: "First paragraph here.\n\nSecond one.",
       plainText: "First paragraph here.\n\nSecond one.",
@@ -57,22 +67,28 @@ describe("postToEntry", () => {
     });
   });
 
-  it("shows an updated date only from a later day", () => {
-    const entry = postToEntry(
-      { ...post, updatedAt: "2026-10-25T10:00:00.000Z" },
-      "Africa/Lagos",
-    );
-    expect(entry.updated).toBe("2026-10-25T00:00:00.000Z");
+  it("carries the updated date, canonical and noindex", () => {
+    expect(
+      postToEntry({
+        ...post,
+        updated: "2026-10-25",
+        canonical: "https://example.com/original",
+        noindex: true,
+      }),
+    ).toMatchObject({
+      updated: "2026-10-25T00:00:00.000Z",
+      canonical: "https://example.com/original",
+      noindex: true,
+    });
+  });
+
+  it("marks a preview of an unpublished post as a draft", () => {
+    expect(postToEntry(post, { draft: true }).draft).toBe(true);
   });
 
   it("is visible to published-mode queries", () => {
     const content = createContentQueries(
-      {
-        entries: [postToEntry(post, "Africa/Lagos")],
-        links: [],
-        projects: [],
-        pages: [],
-      },
+      { entries: [postToEntry(post)], links: [], projects: [], pages: [] },
       {
         mode: "published",
         now: new Date("2026-10-22T12:00:00Z"),
@@ -80,19 +96,38 @@ describe("postToEntry", () => {
       },
     );
     expect(content.getEntry("written-in-the-admin")?.title).toBe(post.title);
+    expect(content.getByTag("nigeria")).toHaveLength(1);
   });
 });
 
-describe("mergeEntries", () => {
+describe("mergeAdminPosts", () => {
+  const admin = postToEntry(post);
+  const mdx = { ...admin, title: "Old MDX title", doc: undefined };
+
   it("lets an admin post replace the MDX Entry with its slug", () => {
-    const admin = postToEntry(post, "Africa/Lagos");
-    const mdx = { ...admin, title: "Old MDX title", doc: undefined };
-    const other = { ...mdx, slug: "other" };
-    const merged = mergeEntries([mdx, other], [admin]);
-    expect(merged.map((entry) => [entry.slug, entry.title])).toEqual([
+    const other = { ...mdx, slug: "other", featured: undefined };
+    const { entries } = mergeAdminPosts({ entries: [mdx, other], links: [] }, [
+      admin,
+    ]);
+    expect(entries.map((entry) => [entry.slug, entry.title])).toEqual([
       ["other", "Old MDX title"],
       ["written-in-the-admin", post.title],
     ]);
+  });
+
+  it("gives an admin post's featured position precedence", () => {
+    const entry = { ...mdx, slug: "mdx-entry", featured: 3 };
+    const keeps = { ...mdx, slug: "keeps-its-spot", featured: 4 };
+    const link = { slug: "a-link", featured: 3 };
+    const merged = mergeAdminPosts({ entries: [entry, keeps], links: [link] }, [
+      admin,
+    ]);
+    expect(merged.entries.map((e) => [e.slug, e.featured])).toEqual([
+      ["mdx-entry", undefined],
+      ["keeps-its-spot", 4],
+      ["written-in-the-admin", 3],
+    ]);
+    expect(merged.links).toEqual([{ slug: "a-link", featured: undefined }]);
   });
 });
 

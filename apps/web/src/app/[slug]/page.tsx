@@ -25,6 +25,7 @@ import {
 } from "@/lib/content";
 import { LANG_LABELS } from "@/lib/content/model";
 import { formatDate, formatReadingTime, isoDay } from "@/lib/format";
+import { previewEntryFor } from "@/lib/preview";
 import { entryJsonLd } from "@/lib/seo/jsonld";
 import { entryMetadata } from "@/lib/seo/metadata";
 import { absoluteUrl, entryOgImagePath } from "@/lib/seo/urls";
@@ -41,7 +42,8 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: PageProps<"/[slug]">): Promise<Metadata> {
-  const entry = await getEntry((await params).slug);
+  const { slug } = await params;
+  const entry = (await previewEntryFor(slug)) ?? (await getEntry(slug));
   if (entry === undefined) return {};
   return entryMetadata(siteUrl, entry, await getTranslation(entry));
 }
@@ -49,7 +51,9 @@ export async function generateMetadata({
 const TOC_MIN_HEADINGS = 3;
 
 export default async function EntryPage({ params }: PageProps<"/[slug]">) {
-  const entry = await getEntry((await params).slug);
+  const { slug } = await params;
+  // In draft mode (opened from the admin) the post's saved version replaces the live one.
+  const entry = (await previewEntryFor(slug)) ?? (await getEntry(slug));
   if (entry === undefined) notFound();
 
   const translation = await getTranslation(entry);

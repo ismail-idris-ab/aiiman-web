@@ -10,7 +10,7 @@ import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SearchDialog } from "@/components/search/search-dialog";
 import { siteUrl } from "@/env";
 import { serverEnv } from "@/env.server";
-import { feedAlternates } from "@/lib/seo/metadata";
+import { feedAlternates, TITLE_TEMPLATE } from "@/lib/seo/metadata";
 import { siteConfig } from "@/site.config";
 
 import "./globals.css";
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: `${siteConfig.author.name} · ${siteConfig.name}`,
-    template: `%s · ${siteConfig.name}`,
+    template: TITLE_TEMPLATE,
   },
   description: siteConfig.author.bio,
   authors: [{ name: siteConfig.author.name, url: `${siteUrl}/about` }],

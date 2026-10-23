@@ -5,14 +5,17 @@
 
 import {
   docToText,
+  previewPostSchema,
   publicPostListSchema,
   type Doc,
+  type PreviewPost,
   type PublicPost,
 } from "@aiiman/shared";
+import { z } from "zod";
 
 import type { Entry as VeliteEntry } from "#velite";
 
-import { calendarDate } from "./visibility";
+const previewPostResponseSchema = z.object({ post: previewPostSchema });
 
 /** An MDX Entry, or one from the admin whose body is a Tiptap doc (`doc`) instead of compiled MDX. */
 export type Entry = VeliteEntry & { doc?: Doc };
@@ -31,28 +34,27 @@ export function contentApiUrlFor(env: ApiSourceEnv): string | undefined {
 // Velite's default, so reading times match MDX Entries.
 const WORDS_PER_MINUTE = 265;
 
-/** Calendar date in the site's time zone, stored like Velite's frontmatter dates (UTC midnight). */
-const calendarIso = (iso: string, timeZone: string) =>
-  `${calendarDate(new Date(iso), timeZone)}T00:00:00.000Z`;
+/** Calendar dates are stored like Velite's frontmatter dates: UTC midnight. */
+const calendarIso = (day: string) => `${day}T00:00:00.000Z`;
 
 export function postToEntry(
   post: PublicPost,
-  timeZone: string,
+  { draft = false }: { draft?: boolean } = {},
 ): Entry & { doc: Doc } {
   const text = docToText(post.body);
   const wordCount = text.split(/\s+/).filter((word) => word !== "").length;
-  const date = calendarIso(post.publishedAt, timeZone);
-  const updated = calendarIso(post.updatedAt, timeZone);
   return {
     title: post.title,
     summary: post.summary,
-    date,
-    updated: updated > date ? updated : undefined,
-    type: "essay",
-    tags: [],
-    lang: "en",
-    noindex: false,
-    draft: false,
+    date: calendarIso(post.date),
+    updated: post.updated === undefined ? undefined : calendarIso(post.updated),
+    type: post.type,
+    tags: post.tags,
+    lang: post.lang,
+    featured: post.featured,
+    canonical: post.canonical,
+    noindex: post.noindex,
+    draft,
     redirectFrom: [],
     toc: [],
     body: "",
@@ -68,13 +70,28 @@ export function postToEntry(
   };
 }
 
-/** Admin posts win over MDX Entries with the same slug: imported posts replace their files. */
-export function mergeEntries(
-  mdx: readonly Entry[],
+/**
+ * Admin posts win over MDX Items: an MDX Entry with the same slug is dropped
+ * (imported posts replace their files) and MDX Items lose a featured position
+ * an admin post holds. The API keeps slugs and positions unique among posts.
+ */
+export function mergeAdminPosts<L extends { featured?: number | undefined }>(
+  mdx: { entries: readonly Entry[]; links: readonly L[] },
   admin: readonly Entry[],
-): Entry[] {
-  const adminSlugs = new Set(admin.map((entry) => entry.slug));
-  return [...mdx.filter((entry) => !adminSlugs.has(entry.slug)), ...admin];
+): { entries: Entry[]; links: L[] } {
+  const slugs = new Set(admin.map((entry) => entry.slug));
+  const positions = new Set(admin.map((entry) => entry.featured));
+  const free = <T extends { featured?: number | undefined }>(item: T): T =>
+    item.featured !== undefined && positions.has(item.featured)
+      ? { ...item, featured: undefined }
+      : item;
+  return {
+    entries: [
+      ...mdx.entries.filter((entry) => !slugs.has(entry.slug)).map(free),
+      ...admin,
+    ],
+    links: mdx.links.map(free),
+  };
 }
 
 export async function fetchPublishedPosts(
@@ -85,4 +102,20 @@ export async function fetchPublishedPosts(
   if (!res.ok) throw new Error(`Content API answered ${res.status}`);
   // The API is a trust boundary too: bodies go through the same allowlist the admin saves with.
   return publicPostListSchema.parse(await res.json()).posts;
+}
+
+/** Any post by id for a draft preview, or null when it doesn't exist. Never cached. */
+export async function fetchPreviewPost(
+  baseUrl: string,
+  postId: string,
+  secret: string,
+  fetcher: (url: URL, init: RequestInit) => Promise<Response>,
+): Promise<PreviewPost | null> {
+  const res = await fetcher(
+    new URL(`/api/preview/posts/${encodeURIComponent(postId)}`, baseUrl),
+    { headers: { authorization: `Bearer ${secret}` }, cache: "no-store" },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Content API answered ${res.status}`);
+  return previewPostResponseSchema.parse(await res.json()).post;
 }
