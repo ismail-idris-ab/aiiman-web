@@ -8,7 +8,7 @@ import { serverEnv } from "@/env.server";
 import {
   contentApiUrlFor,
   fetchPublishedPosts,
-  mergeEntries,
+  mergeAdminPosts,
   postToEntry,
 } from "@/lib/content/api-source";
 import {
@@ -28,6 +28,9 @@ export const contentMode = visibilityModeFor(serverEnv);
 const timeZone = siteConfig.timeZone;
 const apiUrl = contentApiUrlFor(serverEnv);
 
+/** The admin API, where this deploy reads it (previews only until switch-over). */
+export const adminApiUrl = apiUrl;
+
 /** True when published admin posts are merged in (previews only until switch-over). */
 export const readsAdminPosts = apiUrl !== undefined;
 
@@ -40,19 +43,30 @@ const mdxContent = createContentQueries(
   { mode: contentMode, now: new Date(), timeZone },
 );
 
+/**
+ * Keys the data cache per deployment: Next's fetch cache outlives a build, so
+ * without it a new deploy could start from an older deploy's API response.
+ */
+const cacheKeyHeaders = {
+  "x-site-deployment": serverEnv.VERCEL_DEPLOYMENT_ID ?? "local",
+};
+
 /** Once per request; the fetch sits in Next's data cache until revalidated. */
 const withAdminPosts = (baseUrl: string) =>
   cache(async (): Promise<ContentQueries> => {
     const posts = await fetchPublishedPosts(baseUrl, (url) =>
-      fetch(url, { cache: "force-cache", next: { tags: [CONTENT_TAG] } }),
+      fetch(url, {
+        cache: "force-cache",
+        headers: cacheKeyHeaders,
+        next: { tags: [CONTENT_TAG] },
+      }),
     );
     return createContentQueries(
       {
-        entries: mergeEntries(
-          entries,
-          posts.map((post) => postToEntry(post, timeZone)),
+        ...mergeAdminPosts(
+          { entries, links },
+          posts.map((post) => postToEntry(post)),
         ),
-        links,
         projects,
         pages,
       },

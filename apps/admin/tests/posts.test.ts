@@ -14,6 +14,10 @@ const post = {
   title: "A post from the admin",
   summary: "Summary",
   body: textToDoc("Hello."),
+  type: "essay",
+  tags: ["web"],
+  lang: "en",
+  noindex: false,
   status: "draft",
   authorId: "u1",
   updatedAt: "2026-10-22T09:00:00.000Z",
@@ -25,6 +29,10 @@ const input = {
   slug: post.slug,
   summary: post.summary,
   body: post.body,
+  type: "essay" as const,
+  tags: ["web"],
+  lang: "en" as const,
+  noindex: false,
 };
 
 const respond = (body: unknown, status = 200) =>
