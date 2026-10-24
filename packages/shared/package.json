@@ -15,6 +15,10 @@
     "./vocab": {
       "types": "./src/vocab.ts",
       "default": "./dist/vocab.js"
+    },
+    "./embed": {
+      "types": "./src/embed.ts",
+      "default": "./dist/embed.js"
     }
   },
   "scripts": {

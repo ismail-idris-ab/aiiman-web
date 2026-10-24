@@ -1,3 +1,4 @@
+import { EMBED_FRAME_ORIGINS } from "@aiiman/shared/embed";
 import { describe, expect, it } from "vitest";
 
 import { contentSecurityPolicy, securityHeaders } from "@/lib/security/headers";
@@ -10,7 +11,7 @@ describe("contentSecurityPolicy", () => {
     expect(csp).toContain("upgrade-insecure-requests");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
-    expect(csp).toContain("frame-src https://www.youtube-nocookie.com");
+    expect(csp).toContain(`frame-src ${EMBED_FRAME_ORIGINS.join(" ")}`);
   });
 
   it("dev policy adds eval for React Refresh and the analytics debug CDN", () => {

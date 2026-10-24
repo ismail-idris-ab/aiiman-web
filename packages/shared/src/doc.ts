@@ -2,11 +2,12 @@
  * The post body: Tiptap JSON through an allowlist. `normaliseDoc` turns any
  * input into a valid Doc by dropping what isn't allowed, and the derivations
  * (plain text, headings, reading time, images, Markdown) all read the
- * normalised form. Embeds join the allowlist with their own feature.
+ * normalised form.
  */
 
 import GithubSlugger from "github-slugger";
 
+import { embedLabel, embedUrl, resolveEmbed } from "./embed.js";
 import { isBlobImageUrl, isCodeLanguage, type CodeLanguage } from "./vocab.js";
 
 export type Mark =
@@ -92,6 +93,12 @@ export interface Image {
   attrs: ImageAttrs;
 }
 
+/** A third-party post or video, stored as its canonical URL (see `resolveEmbed`). */
+export interface EmbedNode {
+  type: "embed";
+  attrs: { url: string; title?: string };
+}
+
 export type Block =
   | Paragraph
   | Heading
@@ -100,7 +107,8 @@ export type Block =
   | Blockquote
   | Callout
   | CodeBlock
-  | Image;
+  | Image
+  | EmbedNode;
 
 export interface Doc {
   type: "doc";
@@ -321,6 +329,23 @@ function normaliseBlock(node: unknown, depth: number): Block | null {
         },
       };
     }
+    case "embed": {
+      // Unsupported or malformed links are dropped; the admin says why before inserting.
+      const resolved =
+        typeof attrs.url === "string" ? resolveEmbed(attrs.url) : null;
+      if (resolved === null || !resolved.ok) return null;
+      const title =
+        typeof attrs.title === "string"
+          ? attrs.title.trim().slice(0, MAX_TITLE_LENGTH)
+          : "";
+      return {
+        type: "embed",
+        attrs: {
+          url: embedUrl(resolved.embed),
+          ...(title === "" ? {} : { title }),
+        },
+      };
+    }
     default:
       return null;
   }
@@ -375,6 +400,7 @@ function blockText(block: Block): string[] {
     case "codeBlock":
       return [block.content?.[0].text ?? ""];
     case "image":
+    case "embed":
       return [];
   }
 }
@@ -564,6 +590,13 @@ function blockMarkdown(block: Block): string {
     }
     case "image":
       return `![${escapeMarkdown(block.attrs.alt)}](<${block.attrs.src}>)`;
+    case "embed": {
+      const resolved = resolveEmbed(block.attrs.url);
+      const label =
+        block.attrs.title ??
+        (resolved.ok ? embedLabel(resolved.embed) : block.attrs.url);
+      return `[${escapeMarkdown(label)}](<${block.attrs.url}>)`;
+    }
   }
 }
 

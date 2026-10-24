@@ -189,6 +189,49 @@ describe("DocContent", () => {
     });
   });
 
+  describe("embeds", () => {
+    const embed = (url: string, title?: string) => ({
+      type: "embed",
+      attrs: { url, ...(title === undefined ? {} : { title }) },
+    });
+
+    it("renders a load button and a link, with no iframe before a tap", () => {
+      const html = render(
+        embed("https://twitter.com/vercel/status/1790123456789012345?s=20"),
+      );
+      expect(html).not.toContain("<iframe");
+      expect(html).toContain("Load X embed");
+      expect(html).toContain("Post by @vercel on X");
+      expect(html).toContain(
+        'href="https://x.com/vercel/status/1790123456789012345" rel="noopener noreferrer"',
+      );
+      expect(html).toContain("Loads content from platform.twitter.com");
+    });
+
+    it("uses the writer's title", () => {
+      const html = render(
+        embed(
+          "https://gist.github.com/octocat/6cad326836d38bd3a7ae",
+          "Naira formatter",
+        ),
+      );
+      expect(html).toContain("Naira formatter");
+      expect(html).toContain("Open on GitHub Gist");
+    });
+
+    it("renders YouTube through the thumbnail facade", () => {
+      const html = render(embed("https://youtu.be/dQw4w9WgXcQ", "A talk"));
+      expect(html).toContain("Play video: A talk");
+      expect(html).not.toContain("<iframe");
+    });
+
+    it("renders nothing for an unsupported link", () => {
+      expect(render(embed("https://evil.example/watch?v=dQw4w9WgXcQ"))).toBe(
+        "",
+      );
+    });
+  });
+
   describe("code blocks", () => {
     const renderHighlighted = async (...content: unknown[]) => {
       const doc = normaliseDoc({ type: "doc", content });

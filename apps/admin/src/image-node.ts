@@ -1,5 +1,6 @@
 import { isBlobImageUrl, type ImageAttrs } from "@aiiman/shared";
 import { mergeAttributes, Node } from "@tiptap/core";
+import { insertBlock } from "./insert-block";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -57,10 +58,7 @@ export const Image = Node.create({
 
   addCommands() {
     return {
-      insertImage:
-        (attrs) =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs }),
+      insertImage: (attrs) => insertBlock({ type: this.name, attrs }),
       setImageAlt:
         (alt) =>
         ({ commands }) =>
