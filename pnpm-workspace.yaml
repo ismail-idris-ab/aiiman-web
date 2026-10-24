@@ -10,3 +10,4 @@ shellEmulator: true
 # Security floors for transitive dependencies (see the Decisions log).
 overrides:
   body-parser: ^2.4.0
+  "@vercel/cli-config>zod": ^4.6.7
