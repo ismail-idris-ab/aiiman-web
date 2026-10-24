@@ -5,3 +5,6 @@ allowBuilds:
   sharp: true
   unrs-resolver: false
 shellEmulator: true
+# Security floors for transitive dependencies (see the Decisions log).
+overrides:
+  body-parser: ^2.4.0
