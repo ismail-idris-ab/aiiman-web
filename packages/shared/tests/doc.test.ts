@@ -319,3 +319,63 @@ describe("derivations", () => {
     );
   });
 });
+
+describe("code blocks", () => {
+  const code = (language: unknown, ...content: unknown[]) => ({
+    type: "codeBlock",
+    attrs: { language },
+    content,
+  });
+
+  it("keeps a known language and the code with its line breaks", () => {
+    const result = normaliseDoc(
+      doc(code("typescript", text("const a = 1;\nconst b = 2;"))),
+    );
+    expect(result).toEqual(
+      doc(code("typescript", text("const a = 1;\nconst b = 2;"))),
+    );
+  });
+
+  it.each([undefined, null, "klingon", "__proto__", "toString", 42])(
+    "falls back to plain text for language %j",
+    (language) => {
+      const result = normaliseDoc(doc(code(language, text("x"))));
+      expect(result.content[0]).toEqual(code("plaintext", text("x")));
+    },
+  );
+
+  it("strips marks and joins inline nodes into plain code", () => {
+    const result = normaliseDoc(
+      doc(
+        code(
+          "bash",
+          text("npm ", [{ type: "bold" }]),
+          text("i", [{ type: "link", attrs: { href: "https://x.example" } }]),
+          { type: "hardBreak" },
+        ),
+      ),
+    );
+    expect(result).toEqual(doc(code("bash", text("npm i"))));
+  });
+
+  it("keeps an empty code block without content", () => {
+    expect(normaliseDoc(doc(code("go"))).content[0]).toEqual({
+      type: "codeBlock",
+      attrs: { language: "go" },
+    });
+  });
+
+  it("adds the code to plain text and exports a fenced block", () => {
+    const body = normaliseDoc(
+      doc(
+        p(text("Run:")),
+        code("bash", text("pnpm dev")),
+        code("plaintext", text("has ``` inside")),
+      ),
+    );
+    expect(docToText(body)).toBe("Run:\n\npnpm dev\n\nhas ``` inside");
+    expect(docToMarkdown(body)).toBe(
+      "Run:\n\n```bash\npnpm dev\n```\n\n````\nhas ``` inside\n````",
+    );
+  });
+});

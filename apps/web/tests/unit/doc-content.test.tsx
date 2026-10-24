@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { DocContent } from "@/components/post/doc-content";
+import { highlightCodeBlocks } from "@/components/post/highlight-code";
 
 const text = (value: string, marks?: unknown[]) => ({
   type: "text",
@@ -122,5 +123,66 @@ describe("DocContent", () => {
       "utf8",
     );
     expect(source).not.toContain("dangerouslySetInnerHTML");
+  });
+
+  describe("code blocks", () => {
+    const renderHighlighted = async (...content: unknown[]) => {
+      const doc = normaliseDoc({ type: "doc", content });
+      const code = await highlightCodeBlocks(doc);
+      return renderToStaticMarkup(<DocContent doc={doc} code={code} />);
+    };
+    const block = (language: string, value: string) => ({
+      type: "codeBlock",
+      attrs: { language },
+      content: [text(value)],
+    });
+
+    it("highlights with both high-contrast themes, like MDX", async () => {
+      const html = await renderHighlighted(
+        block("typescript", "const naira: number = 100;"),
+      );
+      expect(html).toContain("<figure data-rehype-pretty-code-figure");
+      expect(html).toMatch(
+        /<pre[^>]*data-language="typescript"[^>]*data-theme="github-light-high-contrast github-dark-high-contrast"/,
+      );
+      expect(html).toContain("--shiki-light:");
+      expect(html).toContain("--shiki-dark:");
+      expect(html).toContain("data-line");
+    });
+
+    it("wraps the block with the copy button", async () => {
+      const html = await renderHighlighted(block("bash", "pnpm dev"));
+      expect(html).toMatch(
+        /<div class="group relative"><pre[\s\S]*<\/pre><button/,
+      );
+      expect(html).toContain("Copy");
+    });
+
+    it("renders unknown languages as plain text", async () => {
+      const html = await renderHighlighted(block("klingon", "Qapla'"));
+      expect(html).toContain('data-language="plaintext"');
+      expect(html).toContain("Qapla&#x27;");
+    });
+
+    it("keeps code text as text and finds blocks inside lists and callouts", async () => {
+      const html = await renderHighlighted({
+        type: "callout",
+        attrs: {},
+        content: [
+          {
+            type: "bulletList",
+            content: [li(block("html", "<script>alert(1)</script>"))],
+          },
+        ],
+      });
+      expect(html).toContain("data-rehype-pretty-code-figure");
+      expect(html).not.toContain("<script>");
+    });
+
+    it("falls back to an unhighlighted block when not highlighted", () => {
+      expect(render(block("go", "package main"))).toBe(
+        "<pre><code>package main</code></pre>",
+      );
+    });
   });
 });

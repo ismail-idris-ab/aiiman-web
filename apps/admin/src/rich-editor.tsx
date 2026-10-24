@@ -1,4 +1,10 @@
-import { isAllowedHref, normaliseDoc, type Doc } from "@aiiman/shared";
+import {
+  CODE_LANGUAGES,
+  isAllowedHref,
+  isCodeLanguage,
+  normaliseDoc,
+  type Doc,
+} from "@aiiman/shared";
 import {
   EditorContent,
   useEditor,
@@ -8,11 +14,15 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { Callout } from "./callout";
 
-/** Only what the shared document model allows; code blocks, images and embeds come later. */
+/** Only what the shared document model allows; images and embeds come later. */
 const extensions = [
   StarterKit.configure({
     heading: { levels: [2, 3, 4] },
-    codeBlock: false,
+    // Shiki ids, so the site highlights exactly what was picked here.
+    codeBlock: {
+      defaultLanguage: "plaintext",
+      languageClassPrefix: "language-",
+    },
     horizontalRule: false,
     strike: false,
     underline: false,
@@ -116,6 +126,12 @@ const TOOLS: Tool[] = [
     isActive: (editor) => editor.isActive("callout"),
     run: (editor) => editor.chain().focus().toggleCallout().run(),
   },
+  {
+    label: "Code block",
+    text: "Code",
+    isActive: (editor) => editor.isActive("codeBlock"),
+    run: (editor) => editor.chain().focus().toggleCodeBlock().run(),
+  },
 ];
 
 export function RichEditor({
@@ -151,13 +167,22 @@ export function RichEditor({
       onChange(normaliseDoc(current.getJSON())),
   });
 
-  const active = useEditorState({
+  const state = useEditorState({
     editor,
-    selector: ({ editor: current }) =>
-      TOOLS.map((tool) => tool.isActive(current)),
+    selector: ({ editor: current }) => {
+      const language: unknown = current.getAttributes("codeBlock").language;
+      return {
+        active: TOOLS.map((tool) => tool.isActive(current)),
+        inCallout: current.isActive("callout"),
+        // null outside a code block.
+        codeLanguage: current.isActive("codeBlock")
+          ? isCodeLanguage(language)
+            ? language
+            : "plaintext"
+          : null,
+      };
+    },
   });
-
-  const inCallout = active?.[TOOLS.findIndex((t) => t.label === "Callout")];
 
   return (
     <div className="rich-editor">
@@ -168,17 +193,36 @@ export function RichEditor({
             type="button"
             aria-label={tool.label}
             title={tool.label}
-            aria-pressed={active?.[index] ?? false}
+            aria-pressed={state?.active[index] ?? false}
             onClick={() => tool.run(editor)}
           >
             {tool.text}
           </button>
         ))}
-        {inCallout ? (
+        {state?.inCallout ? (
           <button type="button" onClick={() => askCalloutTitle(editor)}>
             Callout title
           </button>
         ) : null}
+        {state?.codeLanguage == null ? null : (
+          <select
+            aria-label="Code language"
+            value={state.codeLanguage}
+            onChange={(event) =>
+              editor
+                .chain()
+                .focus()
+                .updateAttributes("codeBlock", { language: event.target.value })
+                .run()
+            }
+          >
+            {Object.entries(CODE_LANGUAGES).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <EditorContent editor={editor} />
     </div>

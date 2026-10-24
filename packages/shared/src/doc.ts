@@ -2,10 +2,12 @@
  * The post body: Tiptap JSON through an allowlist. `normaliseDoc` turns any
  * input into a valid Doc by dropping what isn't allowed, and the derivations
  * (plain text, headings, reading time, Markdown) all read the normalised form.
- * Code blocks, images and embeds join the allowlist with their own features.
+ * Images and embeds join the allowlist with their own features.
  */
 
 import GithubSlugger from "github-slugger";
+
+import { isCodeLanguage, type CodeLanguage } from "./vocab.js";
 
 export type Mark =
   | { type: "bold" }
@@ -65,8 +67,21 @@ export interface Callout {
   content: Block[];
 }
 
+/** Code as plain text (no marks); line breaks are "\n" inside the text. */
+export interface CodeBlock {
+  type: "codeBlock";
+  attrs: { language: CodeLanguage };
+  content?: [{ type: "text"; text: string }];
+}
+
 export type Block =
-  Paragraph | Heading | BulletList | OrderedList | Blockquote | Callout;
+  | Paragraph
+  | Heading
+  | BulletList
+  | OrderedList
+  | Blockquote
+  | Callout
+  | CodeBlock;
 
 export interface Doc {
   type: "doc";
@@ -78,6 +93,7 @@ export const EMPTY_DOC: Doc = { type: "doc", content: [] };
 /** Nesting deeper than this (lists in quotes in callouts…) is dropped. */
 export const MAX_DEPTH = 8;
 const MAX_TEXT_LENGTH = 20_000;
+const MAX_CODE_LENGTH = 100_000;
 const MAX_TITLE_LENGTH = 120;
 /** Upper bound on nodes in one body; the schema rejects anything larger. */
 export const MAX_NODES = 20_000;
@@ -226,6 +242,25 @@ function normaliseBlock(node: unknown, depth: number): Block | null {
             content,
           };
     }
+    case "codeBlock": {
+      // Marks and other inline nodes don't belong in code: keep their text only.
+      const code = children(node)
+        .map((child) =>
+          isObject(child) && typeof child.text === "string" ? child.text : "",
+        )
+        .join("")
+        .slice(0, MAX_CODE_LENGTH);
+      const language = isCodeLanguage(attrs.language)
+        ? attrs.language
+        : "plaintext";
+      return code === ""
+        ? { type: "codeBlock", attrs: { language } }
+        : {
+            type: "codeBlock",
+            attrs: { language },
+            content: [{ type: "text", text: code }],
+          };
+    }
     default:
       return null;
   }
@@ -277,6 +312,8 @@ function blockText(block: Block): string[] {
         ...(block.attrs.title === undefined ? [] : [block.attrs.title]),
         ...block.content.flatMap(blockText),
       ];
+    case "codeBlock":
+      return [block.content?.[0].text ?? ""];
   }
 }
 
@@ -433,6 +470,18 @@ function blockMarkdown(block: Block): string {
           blocksMarkdown(block.content),
         ].join("\n\n"),
       );
+    case "codeBlock": {
+      const code = block.content?.[0].text ?? "";
+      // The fence must be longer than any backtick run inside the code.
+      const longest = Math.max(
+        2,
+        ...(code.match(/`+/g) ?? []).map((run) => run.length),
+      );
+      const fence = "`".repeat(longest + 1);
+      const info =
+        block.attrs.language === "plaintext" ? "" : block.attrs.language;
+      return `${fence}${info}\n${code}\n${fence}`;
+    }
   }
 }
 
