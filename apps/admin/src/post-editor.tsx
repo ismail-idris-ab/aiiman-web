@@ -24,9 +24,10 @@ import {
   type PostResult,
 } from "./posts";
 import { PreviewsPanel } from "./previews-panel";
+import { RichEditor } from "./rich-editor";
 
 type Message = { kind: "status" | "alert"; text: string } | null;
-type TextField = Exclude<keyof Fields, "noindex">;
+type TextField = Exclude<keyof Fields, "noindex" | "body">;
 
 export function PostEditor({
   id,
@@ -244,17 +245,25 @@ export function PostEditor({
             />,
             `${fields.summary.length}/160. Shown in search results and share previews.`,
           )}
-          {row(
-            "body",
-            "Body",
-            <textarea
-              {...text("body")}
-              {...described("body", true)}
-              rows={16}
-              cols={60}
-            />,
-            "Leave a blank line between paragraphs.",
-          )}
+          <div>
+            {/* A contenteditable can't be the target of <label for>; it is named by aria-labelledby. */}
+            <span id="body-label">Body</span>
+            <RichEditor
+              id="body"
+              value={fields.body}
+              onChange={(body) => update("body", body)}
+              describedBy={described("body", true)["aria-describedby"]}
+            />
+            <small id="body-hint">
+              Headings start at H2: the title above is the page&apos;s main
+              heading.
+            </small>
+            {errorFor("body") === undefined ? null : (
+              <p>
+                <span id="body-error">{errorFor("body")}</span>
+              </p>
+            )}
+          </div>
         </fieldset>
 
         <fieldset>

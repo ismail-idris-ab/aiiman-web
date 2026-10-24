@@ -1,6 +1,6 @@
 import {
-  docToText,
-  textToDoc,
+  EMPTY_DOC,
+  type Doc,
   type EntryType,
   type Lang,
   type PostInput,
@@ -21,7 +21,7 @@ export interface Fields {
   featured: string;
   canonical: string;
   noindex: boolean;
-  body: string;
+  body: Doc;
 }
 
 export const EMPTY_FIELDS: Fields = {
@@ -36,7 +36,7 @@ export const EMPTY_FIELDS: Fields = {
   featured: "",
   canonical: "",
   noindex: false,
-  body: "",
+  body: EMPTY_DOC,
 };
 
 export function fieldsOf(post: Post): Fields {
@@ -52,7 +52,7 @@ export function fieldsOf(post: Post): Fields {
     featured: post.featured === undefined ? "" : String(post.featured),
     canonical: post.canonical ?? "",
     noindex: post.noindex,
-    body: docToText(post.body),
+    body: post.body,
   };
 }
 
@@ -83,7 +83,7 @@ export function inputOf(fields: Fields): PostInput {
     tags: parseTags(fields.tags),
     lang: fields.lang,
     noindex: fields.noindex,
-    body: textToDoc(fields.body),
+    body: fields.body,
     ...(date === undefined ? {} : { date }),
     ...(updated === undefined ? {} : { updated }),
     // A non-number becomes NaN, which JSON sends as null; the API rejects it with its own message.
