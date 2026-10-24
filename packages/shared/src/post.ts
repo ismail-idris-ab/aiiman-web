@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { docSchema } from "./doc.js";
+import { countNodes, MAX_NODES, normaliseDoc } from "./doc.js";
 import {
   ENTRY_TYPES,
   LANGS,
@@ -11,6 +11,19 @@ import {
   SLUG_PATTERN,
   TAG_PATTERN,
 } from "./vocab.js";
+
+// Zod probes `new Function` to pick a faster parser; the admin's CSP (no
+// 'unsafe-eval') blocks it and reports a violation even though Zod recovers.
+z.config({ jitless: true });
+
+/** Any Tiptap JSON → the allowlisted Doc; unknown nodes, marks and attributes are dropped. */
+export const docSchema = z
+  .unknown()
+  .transform(normaliseDoc)
+  .refine(
+    (doc) => countNodes(doc) <= MAX_NODES,
+    "This post is too long to save. Split it into parts.",
+  );
 
 export const slugSchema = z
   .string()

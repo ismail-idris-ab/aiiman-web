@@ -17,7 +17,7 @@ function isExternal(href: string): boolean {
   return new URL(href).hostname !== siteConfig.domain;
 }
 
-function MdxLink({
+export function MdxLink({
   href = "",
   children,
   ...props
@@ -95,7 +95,13 @@ function MdxImage({
   );
 }
 
-function Callout({ title, children }: { title?: string; children: ReactNode }) {
+export function Callout({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <aside
       className="not-prose my-6 rounded-lg border border-border bg-accent-soft px-5 py-4"
