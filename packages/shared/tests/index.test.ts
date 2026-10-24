@@ -167,13 +167,16 @@ describe("missingRequiredPages", () => {
   });
 });
 
-describe("vocab entry point", () => {
-  it("imports nothing, so the site's client bundle never pulls in Zod", async () => {
-    const { readFile } = await import("node:fs/promises");
-    const source = await readFile(
-      new URL("../src/vocab.ts", import.meta.url),
-      "utf8",
-    );
-    expect(source).not.toMatch(/^\s*import\s/m);
-  });
+describe("dependency-free entry points", () => {
+  it.each(["vocab", "embed"])(
+    "%s imports nothing, so the site's client bundle never pulls in Zod",
+    async (name) => {
+      const { readFile } = await import("node:fs/promises");
+      const source = await readFile(
+        new URL(`../src/${name}.ts`, import.meta.url),
+        "utf8",
+      );
+      expect(source).not.toMatch(/^\s*import\s/m);
+    },
+  );
 });

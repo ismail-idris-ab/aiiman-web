@@ -14,10 +14,12 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { useState } from "react";
 import { Callout } from "./callout";
+import { Embed } from "./embed-node";
+import { EmbedPicker } from "./embed-picker";
 import { Image } from "./image-node";
 import { ImagePicker } from "./image-picker";
 
-/** Only what the shared document model allows; embeds come later. */
+/** Only what the shared document model allows. */
 const extensions = [
   StarterKit.configure({
     heading: { levels: [2, 3, 4] },
@@ -38,6 +40,7 @@ const extensions = [
   }),
   Callout,
   Image,
+  Embed,
 ];
 
 interface Tool {
@@ -171,7 +174,10 @@ export function RichEditor({
       onChange(normaliseDoc(current.getJSON())),
   });
 
-  const [picking, setPicking] = useState(false);
+  // The insert panel that is open, if any.
+  const [panel, setPanel] = useState<"image" | "embed" | null>(null);
+  const toggle = (name: "image" | "embed") =>
+    setPanel((open) => (open === name ? null : name));
 
   const state = useEditorState({
     editor,
@@ -216,11 +222,19 @@ export function RichEditor({
         ) : null}
         <button
           type="button"
-          aria-expanded={picking}
-          aria-controls={`${id}-image`}
-          onClick={() => setPicking((open) => !open)}
+          aria-expanded={panel === "image"}
+          aria-controls={`${id}-panel`}
+          onClick={() => toggle("image")}
         >
           Image
+        </button>
+        <button
+          type="button"
+          aria-expanded={panel === "embed"}
+          aria-controls={`${id}-panel`}
+          onClick={() => toggle("embed")}
+        >
+          Embed
         </button>
         {state?.codeLanguage == null ? null : (
           <select
@@ -256,20 +270,31 @@ export function RichEditor({
           </span>
         )}
       </div>
-      {picking ? (
-        <div id={`${id}-image`}>
-          <ImagePicker
-            id={`${id}-image-picker`}
-            title="Insert an image"
-            submitLabel="Upload and insert"
-            onPicked={(image) => {
-              editor.chain().focus().insertImage(image).run();
-              setPicking(false);
-            }}
-            onCancel={() => setPicking(false)}
-          />
+      {panel === null ? null : (
+        <div id={`${id}-panel`}>
+          {panel === "image" ? (
+            <ImagePicker
+              id={`${id}-image-picker`}
+              title="Insert an image"
+              submitLabel="Upload and insert"
+              onPicked={(image) => {
+                editor.chain().focus().insertImage(image).run();
+                setPanel(null);
+              }}
+              onCancel={() => setPanel(null)}
+            />
+          ) : (
+            <EmbedPicker
+              id={`${id}-embed-picker`}
+              onPicked={(embed) => {
+                editor.chain().focus().insertEmbed(embed).run();
+                setPanel(null);
+              }}
+              onCancel={() => setPanel(null)}
+            />
+          )}
         </div>
-      ) : null}
+      )}
       <EditorContent editor={editor} />
     </div>
   );

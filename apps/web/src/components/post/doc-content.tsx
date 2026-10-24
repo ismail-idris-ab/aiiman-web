@@ -8,10 +8,12 @@ import {
   type Inline,
   type ListItem,
 } from "@aiiman/shared";
+import { resolveEmbed } from "@aiiman/shared/embed";
 import { Fragment, type ReactNode } from "react";
 
 import { Callout, MdxImage, MdxLink } from "@/components/mdx/components";
 
+import { EmbedBlock } from "./embed-block";
 import type { HighlightedCode } from "./highlight-code";
 
 /** Top-level blocks after which an image is assumed below the fold (as in remark-content). */
@@ -129,6 +131,17 @@ export function DocContent({
             data-priority={node.attrs === priority ? "true" : undefined}
           />
         );
+      case "embed": {
+        // Normalised docs only hold URLs the resolver accepted.
+        const resolved = resolveEmbed(node.attrs.url);
+        return resolved.ok ? (
+          <EmbedBlock
+            key={index}
+            embed={resolved.embed}
+            title={node.attrs.title}
+          />
+        ) : null;
+      }
       case "codeBlock":
         return (
           <Fragment key={index}>

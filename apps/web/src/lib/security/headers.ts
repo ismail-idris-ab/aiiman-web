@@ -27,7 +27,14 @@ export function contentSecurityPolicy(dev: boolean): string {
     "img-src": ["'self'", "data:", "blob:", "https://i.ytimg.com"],
     "font-src": ["'self'"],
     "connect-src": ["'self'", ...(dev ? [VERCEL_SCRIPTS_DEV] : [])],
-    "frame-src": ["https://www.youtube-nocookie.com"],
+    // Embeds load only after the reader taps; must equal EMBED_FRAME_ORIGINS in @aiiman/shared.
+    "frame-src": [
+      "https://www.youtube-nocookie.com",
+      "https://platform.twitter.com",
+      "https://www.tiktok.com",
+      "https://www.instagram.com",
+      "https://gist.github.com",
+    ],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],

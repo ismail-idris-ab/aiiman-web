@@ -3,6 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
+import { resolveEmbed } from "@aiiman/shared/embed";
+
+import { EmbedBlock } from "@/components/post/embed-block";
 import { siteConfig } from "@/site.config";
 
 import { CopyButton } from "./copy-button";
@@ -118,6 +121,13 @@ export function Callout({
 
 const YOUTUBE_ID = /^[\w-]{11}$/;
 
+/** `<Embed url="https://x.com/…/status/…" title="…" />`: any link the admin can embed. */
+function Embed({ url, title }: { url: string; title?: string }) {
+  const resolved = resolveEmbed(url);
+  if (!resolved.ok) throw new Error(`<Embed> url "${url}": ${resolved.error}`);
+  return <EmbedBlock embed={resolved.embed} title={title} />;
+}
+
 function YouTube({ id, title }: { id: string; title: string }) {
   if (!YOUTUBE_ID.test(id))
     throw new Error(`<YouTube> id "${id}" is not a valid video ID.`);
@@ -143,6 +153,7 @@ export const mdxComponents: MDXComponents = {
   Image: MdxImage,
   Callout,
   YouTube,
+  Embed,
 };
 
 function LazyMdxImage(props: MdxImageProps) {

@@ -17,7 +17,7 @@ const CSP_DIRECTIVES = [
   "img-src 'self' data: blob: https://i.ytimg.com",
   "font-src 'self'",
   "connect-src 'self'",
-  "frame-src https://www.youtube-nocookie.com",
+  "frame-src https://www.youtube-nocookie.com https://platform.twitter.com https://www.tiktok.com https://www.instagram.com https://gist.github.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
