@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   calendarDate,
   CONTENT_TIME_ZONE,
+  docImages,
   missingRequiredPages,
   OPTIONAL_POST_FIELDS,
   postInputSchema,
@@ -11,16 +12,16 @@ import {
   Router,
   type NextFunction,
   type Request,
-  type RequestHandler,
   type Response,
 } from "express";
 import type { z } from "zod";
-import { currentUser, type AuthDeps } from "../auth/routes.js";
+import { requireUser, type AuthDeps } from "../auth/routes.js";
 import { SiteUnavailableError, type SiteClient } from "../site.js";
 import {
   DuplicateFieldError,
   type Post,
   type PostChanges,
+  type Stores,
   type User,
 } from "../store.js";
 
@@ -63,6 +64,43 @@ function postOf(res: Response): Post {
   return res.locals.post as Post;
 }
 
+const NOT_UPLOADED = "This image wasn't uploaded here. Upload it again.";
+
+/**
+ * Field errors for images the API didn't upload, or whose measurements
+ * differ from the upload's: the site trusts them to reserve layout space.
+ */
+async function unknownImages(
+  stores: Stores,
+  input: PostInput,
+): Promise<Record<string, string>> {
+  const images = [
+    ...docImages(input.body).map((image) => ["body", image] as const),
+    ...(input.cover === undefined ? [] : [["cover", input.cover] as const]),
+  ];
+  if (images.length === 0) return {};
+  const uploads = new Map(
+    (
+      await stores.uploads.findByUrls([
+        ...new Set(images.map(([, image]) => image.src)),
+      ])
+    ).map((upload) => [upload.url, upload]),
+  );
+  const fields: Record<string, string> = {};
+  for (const [field, image] of images) {
+    const upload = uploads.get(image.src);
+    if (
+      upload === undefined ||
+      upload.width !== image.width ||
+      upload.height !== image.height ||
+      upload.blurDataURL !== image.blurDataURL
+    ) {
+      fields[field] = NOT_UPLOADED;
+    }
+  }
+  return fields;
+}
+
 /** Optional fields the input leaves out, which an edit clears. */
 function absentFields(input: PostInput): string[] {
   return OPTIONAL_POST_FIELDS.filter((key) => input[key] === undefined);
@@ -71,17 +109,6 @@ function absentFields(input: PostInput): string[] {
 export function postsRouter(deps: PostDeps): Router {
   const { getStores, log, now, site } = deps;
   const router = Router();
-
-  const requireUser: RequestHandler = async (req, res, next) => {
-    const user = await currentUser(req, deps);
-    if (user === null) {
-      res.status(401).json({ error: "Not signed in" });
-      return;
-    }
-    res.locals.user = user;
-    res.set("Cache-Control", "no-store");
-    next();
-  };
 
   /** Loads :id into res.locals.post, or answers 404 (also when the user may not edit it). */
   const loadPost = async (
@@ -99,13 +126,13 @@ export function postsRouter(deps: PostDeps): Router {
     next();
   };
 
-  const parseInput = (req: Request, res: Response) => {
+  const parseInput = async (req: Request, res: Response) => {
     const parsed = postInputSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        error: "Check the highlighted fields",
-        fields: fieldErrors(parsed.error),
-      });
+    const fields = parsed.success
+      ? await unknownImages(await getStores(), parsed.data)
+      : fieldErrors(parsed.error);
+    if (!parsed.success || Object.keys(fields).length > 0) {
+      res.status(400).json({ error: "Check the highlighted fields", fields });
       return undefined;
     }
     return parsed.data;
@@ -117,7 +144,7 @@ export function postsRouter(deps: PostDeps): Router {
       fields: { [error.field]: DUPLICATE[error.field] },
     });
 
-  router.use(requireUser);
+  router.use(requireUser(deps));
 
   router.get("/", async (_req, res) => {
     const user = userOf(res);
@@ -129,7 +156,7 @@ export function postsRouter(deps: PostDeps): Router {
   });
 
   router.post("/", async (req, res) => {
-    const input = parseInput(req, res);
+    const input = await parseInput(req, res);
     if (input === undefined) return;
     const user = userOf(res);
     const time = now();
@@ -188,7 +215,7 @@ export function postsRouter(deps: PostDeps): Router {
   };
 
   router.put("/:id", loadPost, async (req, res) => {
-    const input = parseInput(req, res);
+    const input = await parseInput(req, res);
     if (input === undefined) return;
     const post = postOf(res);
     // Changing a live URL needs a permanent redirect, which arrives with previous slugs.

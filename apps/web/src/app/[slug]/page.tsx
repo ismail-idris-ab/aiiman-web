@@ -192,6 +192,7 @@ export default async function EntryPage({ params }: PageProps<"/[slug]">) {
             <DocContent
               doc={entry.doc}
               code={await highlightCodeBlocks(entry.doc)}
+              lazyImages={entry.cover !== undefined}
             />
           )}
         </div>

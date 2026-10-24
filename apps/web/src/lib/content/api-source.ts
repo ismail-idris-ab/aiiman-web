@@ -53,6 +53,23 @@ export function postToEntry(
     featured: post.featured,
     canonical: post.canonical,
     noindex: post.noindex,
+    ...(post.cover === undefined
+      ? {}
+      : {
+          cover: {
+            src: post.cover.src,
+            width: post.cover.width,
+            height: post.cover.height,
+            blurDataURL: post.cover.blurDataURL,
+            // Velite's placeholder size; next/image doesn't read it for remote images.
+            blurWidth: 8,
+            blurHeight: Math.max(
+              1,
+              Math.round((8 * post.cover.height) / post.cover.width),
+            ),
+          },
+          coverAlt: post.cover.alt,
+        }),
     draft,
     redirectFrom: [],
     toc: docToc(post.body),

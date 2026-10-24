@@ -125,3 +125,41 @@ export type CodeLanguage = keyof typeof CODE_LANGUAGES;
 
 export const isCodeLanguage = (value: unknown): value is CodeLanguage =>
   typeof value === "string" && Object.hasOwn(CODE_LANGUAGES, value);
+
+/** Image types the API accepts for upload. */
+export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export type ImageType = (typeof IMAGE_TYPES)[number];
+
+/** Largest upload, under Vercel's 4.5 MB request body limit for functions. */
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+/** Longest side of a stored image; larger uploads are scaled down. */
+export const MAX_IMAGE_SIDE = 2400;
+
+/** Uploaded images are public Vercel Blob objects under this path. */
+export const IMAGE_PATH_PREFIX = "/images/";
+
+const BLOB_HOST = /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/;
+
+/** A plain https URL of an image this site uploaded to Vercel Blob, and nothing else. */
+export function isBlobImageUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 512) return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.port === "" &&
+    BLOB_HOST.test(url.hostname) &&
+    url.pathname.startsWith(IMAGE_PATH_PREFIX) &&
+    url.search === "" &&
+    url.hash === "" &&
+    // Only the canonical spelling: no encoded tricks the browser reads differently.
+    url.href === value
+  );
+}

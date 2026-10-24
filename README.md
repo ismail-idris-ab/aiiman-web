@@ -96,4 +96,5 @@ Site name, domain, author bio and social links live only in [`apps/web/src/site.
 - **Domain**: add `aiiman.dev` and `www.aiiman.dev`; make the apex primary and redirect `www` → apex (308).
 - **Analytics**: enable Web Analytics and Speed Insights in the Vercel project. Their scripts load only on Vercel deploys and need no CSP changes.
 - **Scheduled posts**: create a Deploy Hook (Settings → Git → Deploy Hooks, branch `main`) and save its URL as the `VERCEL_DEPLOY_HOOK_URL` GitHub secret. Without it, future-dated posts appear on the next push instead.
+- **Images in admin posts**: connect a public Vercel Blob store to the admin + API project (Storage → Blob); it sets `BLOB_READ_WRITE_TOKEN`. Without it, uploads answer "not set up yet" and everything else works. Other API variables are listed in `apps/api/.env.example`.
 - **Security headers** (CSP, HSTS, COOP, …) are set in `next.config.ts` via `src/lib/security/headers.ts`. Don't weaken them; the e2e suite checks them.

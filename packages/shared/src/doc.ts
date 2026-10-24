@@ -1,13 +1,13 @@
 /**
  * The post body: Tiptap JSON through an allowlist. `normaliseDoc` turns any
  * input into a valid Doc by dropping what isn't allowed, and the derivations
- * (plain text, headings, reading time, Markdown) all read the normalised form.
- * Images and embeds join the allowlist with their own features.
+ * (plain text, headings, reading time, images, Markdown) all read the
+ * normalised form. Embeds join the allowlist with their own feature.
  */
 
 import GithubSlugger from "github-slugger";
 
-import { isCodeLanguage, type CodeLanguage } from "./vocab.js";
+import { isBlobImageUrl, isCodeLanguage, type CodeLanguage } from "./vocab.js";
 
 export type Mark =
   | { type: "bold" }
@@ -74,6 +74,24 @@ export interface CodeBlock {
   content?: [{ type: "text"; text: string }];
 }
 
+/**
+ * An uploaded image. Width, height and the blur placeholder come from the
+ * upload, so the site reserves its space before it loads. Alt may be empty
+ * here; the post schema refuses to save it that way.
+ */
+export interface ImageAttrs {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  blurDataURL: string;
+}
+
+export interface Image {
+  type: "image";
+  attrs: ImageAttrs;
+}
+
 export type Block =
   | Paragraph
   | Heading
@@ -81,7 +99,8 @@ export type Block =
   | OrderedList
   | Blockquote
   | Callout
-  | CodeBlock;
+  | CodeBlock
+  | Image;
 
 export interface Doc {
   type: "doc";
@@ -95,6 +114,9 @@ export const MAX_DEPTH = 8;
 const MAX_TEXT_LENGTH = 20_000;
 const MAX_CODE_LENGTH = 100_000;
 const MAX_TITLE_LENGTH = 120;
+export const MAX_ALT_LENGTH = 1000;
+const MAX_DIMENSION = 10_000;
+const MAX_BLUR_LENGTH = 4096;
 /** Upper bound on nodes in one body; the schema rejects anything larger. */
 export const MAX_NODES = 20_000;
 
@@ -117,6 +139,21 @@ export function isAllowedHref(href: string): boolean {
     return false;
   }
 }
+
+/** The tiny base64 image an upload makes for `next/image`'s blur placeholder. */
+export function isBlurDataUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= MAX_BLUR_LENGTH &&
+    /^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(value)
+  );
+}
+
+const isDimension = (value: unknown): value is number =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value > 0 &&
+  value <= MAX_DIMENSION;
 
 type Json = Record<string, unknown>;
 
@@ -261,6 +298,29 @@ function normaliseBlock(node: unknown, depth: number): Block | null {
             content: [{ type: "text", text: code }],
           };
     }
+    case "image": {
+      // Only images uploaded here, with the measurements the upload recorded.
+      const { src, alt, width, height, blurDataURL } = attrs;
+      if (
+        !isBlobImageUrl(src) ||
+        !isDimension(width) ||
+        !isDimension(height) ||
+        !isBlurDataUrl(blurDataURL)
+      ) {
+        return null;
+      }
+      return {
+        type: "image",
+        attrs: {
+          src,
+          alt:
+            typeof alt === "string" ? alt.trim().slice(0, MAX_ALT_LENGTH) : "",
+          width,
+          height,
+          blurDataURL,
+        },
+      };
+    }
     default:
       return null;
   }
@@ -314,6 +374,8 @@ function blockText(block: Block): string[] {
       ];
     case "codeBlock":
       return [block.content?.[0].text ?? ""];
+    case "image":
+      return [];
   }
 }
 
@@ -337,6 +399,24 @@ const WORDS_PER_MINUTE = 265;
 
 export const readingMinutes = (doc: Doc): number =>
   Math.max(1, Math.round(wordCount(doc) / WORDS_PER_MINUTE));
+
+/** Images in document order, the ones inside lists, quotes and callouts included. */
+export function docImages(doc: Doc): ImageAttrs[] {
+  const images: ImageAttrs[] = [];
+  const visit = (blocks: readonly Block[]) => {
+    for (const block of blocks) {
+      if (block.type === "image") {
+        images.push(block.attrs);
+      } else if (block.type === "bulletList" || block.type === "orderedList") {
+        for (const item of block.content) visit(item.content);
+      } else if (block.type === "blockquote" || block.type === "callout") {
+        visit(block.content);
+      }
+    }
+  };
+  visit(doc.content);
+  return images;
+}
 
 export interface DocHeading {
   level: HeadingLevel;
@@ -482,6 +562,8 @@ function blockMarkdown(block: Block): string {
         block.attrs.language === "plaintext" ? "" : block.attrs.language;
       return `${fence}${info}\n${code}\n${fence}`;
     }
+    case "image":
+      return `![${escapeMarkdown(block.attrs.alt)}](<${block.attrs.src}>)`;
   }
 }
 

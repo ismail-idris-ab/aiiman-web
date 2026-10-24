@@ -48,6 +48,12 @@ export default async function config(phase: string): Promise<NextConfig> {
     images: {
       remotePatterns: [
         { protocol: "https", hostname: "i.ytimg.com", pathname: "/vi/**" },
+        // Admin uploads (IMAGE_PATH_PREFIX in @aiiman/shared); posts accept no other remote images.
+        {
+          protocol: "https",
+          hostname: "*.public.blob.vercel-storage.com",
+          pathname: "/images/**",
+        },
       ],
     },
     redirects: async () => entryRedirects(),

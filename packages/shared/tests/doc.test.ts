@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countNodes,
   docHeadings,
+  docImages,
   docToc,
   docToMarkdown,
   docToText,
@@ -14,6 +15,7 @@ import {
   type Doc,
 } from "../src/doc.js";
 import { docSchema } from "../src/post.js";
+import { isBlobImageUrl } from "../src/vocab.js";
 
 const text = (value: string, marks?: unknown[]) => ({
   type: "text",
@@ -377,5 +379,92 @@ describe("code blocks", () => {
     expect(docToMarkdown(body)).toBe(
       "Run:\n\n```bash\npnpm dev\n```\n\n````\nhas ``` inside\n````",
     );
+  });
+});
+
+describe("images", () => {
+  const src = "https://abc123.public.blob.vercel-storage.com/images/kano.webp";
+  const attrs = {
+    src,
+    alt: "Kano city walls at dusk",
+    width: 1600,
+    height: 900,
+    blurDataURL: "data:image/webp;base64,UklGRkAAAABXRUJQ",
+  };
+  const image = (overrides: Record<string, unknown> = {}) => ({
+    type: "image",
+    attrs: { ...attrs, ...overrides },
+  });
+
+  it("accepts only plain URLs of images uploaded to Vercel Blob", () => {
+    expect(isBlobImageUrl(src)).toBe(true);
+    for (const bad of [
+      "http://abc123.public.blob.vercel-storage.com/images/kano.webp",
+      "https://abc123.public.blob.vercel-storage.com/other/kano.webp",
+      "https://abc123.public.blob.vercel-storage.com.evil.com/images/a.webp",
+      "https://evil.com/abc123.public.blob.vercel-storage.com/images/a.webp",
+      "https://user@abc123.public.blob.vercel-storage.com/images/a.webp",
+      "https://abc123.public.blob.vercel-storage.com:8443/images/a.webp",
+      "https://abc123.public.blob.vercel-storage.com/images/a.webp?x=1",
+      "https://ABC123.public.blob.vercel-storage.com/images/a.webp",
+      "https://abc123.public.blob.vercel-storage.com/images/../a.webp",
+      "javascript:alert(1)",
+      "/images/a.webp",
+      42,
+    ]) {
+      expect(isBlobImageUrl(bad), String(bad)).toBe(false);
+    }
+  });
+
+  it("keeps uploaded images with their measurements and trims alt", () => {
+    expect(
+      normaliseDoc(doc(image({ alt: "  Kano  ", title: "x", onerror: "y" }))),
+    ).toEqual(doc({ type: "image", attrs: { ...attrs, alt: "Kano" } }));
+  });
+
+  it("keeps an image with no alt so the schema can name it", () => {
+    expect(normaliseDoc(doc(image({ alt: undefined })))).toEqual(
+      doc({ type: "image", attrs: { ...attrs, alt: "" } }),
+    );
+  });
+
+  it.each([
+    ["a foreign source", { src: "https://example.com/images/a.webp" }],
+    ["a data: source", { src: "data:image/png;base64,AAAA" }],
+    ["no width", { width: undefined }],
+    ["a fractional height", { height: 10.5 }],
+    ["a zero width", { width: 0 }],
+    [
+      "a blur that isn't an image",
+      { blurDataURL: "data:text/html;base64,PHA+" },
+    ],
+    [
+      "a blur that breaks out of CSS",
+      { blurDataURL: 'data:image/png;base64,AA");x' },
+    ],
+  ])("drops an image with %s", (_name, overrides) => {
+    expect(normaliseDoc(doc(image(overrides), p(text("after"))))).toEqual(
+      doc(p(text("after"))),
+    );
+  });
+
+  it("lists images in order, nested ones included, and leaves them out of text", () => {
+    const body = normaliseDoc(
+      doc(
+        image({ alt: "One" }),
+        { type: "callout", content: [image({ alt: "Two" })] },
+        { type: "bulletList", content: [li(image({ alt: "Three" }))] },
+        p(text("Words")),
+      ),
+    );
+    expect(docImages(body).map((i) => i.alt)).toEqual(["One", "Two", "Three"]);
+    expect(docToText(body)).toBe("Words");
+    expect(wordCount(body)).toBe(1);
+  });
+
+  it("exports images as Markdown with escaped alt", () => {
+    expect(
+      docToMarkdown(normaliseDoc(doc(image({ alt: "A [map] *here*" })))),
+    ).toBe(`![A \\[map\\] \\*here\\*](<${src}>)`);
   });
 });

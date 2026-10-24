@@ -8,6 +8,19 @@ import {
   textToDoc,
 } from "../src/index.js";
 
+const BLUR = "data:image/webp;base64,UklGRkAAAABXRUJQ";
+const cover = {
+  src: "https://abc123.public.blob.vercel-storage.com/images/cover.webp",
+  alt: "Kano city walls at dusk",
+  width: 1600,
+  height: 900,
+  blurDataURL: BLUR,
+};
+const image = (alt: string) => ({
+  type: "image",
+  attrs: { ...cover, alt },
+});
+
 const valid = {
   title: "A post written in the admin",
   summary:
@@ -49,6 +62,7 @@ describe("postInputSchema", () => {
         featured: 12,
         canonical: "https://example.com/original",
         noindex: true,
+        cover,
       }),
     ).toEqual({});
   });
@@ -85,8 +99,31 @@ describe("postInputSchema", () => {
     ["http canonical", { canonical: "http://example.com" }, "canonical"],
     ["javascript canonical", { canonical: "javascript:alert(1)" }, "canonical"],
     ["noindex missing", { noindex: undefined }, "noindex"],
+    ["cover without alt", { cover: { ...cover, alt: " " } }, "cover.alt"],
+    [
+      "cover from another host",
+      { cover: { ...cover, src: "https://example.com/images/a.webp" } },
+      "cover.src",
+    ],
+    [
+      "cover without a blur placeholder",
+      { cover: { ...cover, blurDataURL: "javascript:alert(1)" } },
+      "cover.blurDataURL",
+    ],
+    [
+      "image without alt",
+      { body: { type: "doc", content: [image("A map"), image("")] } },
+      "body",
+    ],
   ])("rejects %s", (_name, override, path) => {
     expect(Object.keys(errorsFor(override))).toEqual([path]);
+  });
+
+  it("names every image that needs alt text", () => {
+    const errors = errorsFor({
+      body: { type: "doc", content: [image(""), image("A map"), image(" ")] },
+    });
+    expect(errors.body).toMatch(/image 1, 3:/);
   });
 
   it("reserves every site route", () => {

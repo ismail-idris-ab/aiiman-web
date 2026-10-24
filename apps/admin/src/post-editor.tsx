@@ -23,11 +23,12 @@ import {
   type Previews,
   type PostResult,
 } from "./posts";
+import { ImagePicker, NO_ALT } from "./image-picker";
 import { PreviewsPanel } from "./previews-panel";
 import { RichEditor } from "./rich-editor";
 
 type Message = { kind: "status" | "alert"; text: string } | null;
-type TextField = Exclude<keyof Fields, "noindex" | "body">;
+type TextField = Exclude<keyof Fields, "noindex" | "body" | "cover">;
 
 export function PostEditor({
   id,
@@ -154,7 +155,7 @@ export function PostEditor({
 
   /** The API's message for a field; tag errors arrive per tag ("tags.0"). */
   const errorFor = (name: string): string | undefined =>
-    errors[name] ??
+    (name === "cover-alt" ? coverAltError : errors[name]) ??
     (name === "tags"
       ? Object.entries(errors).find(([key]) => key.startsWith("tags."))?.[1]
       : undefined);
@@ -203,6 +204,13 @@ export function PostEditor({
       )}
     </p>
   );
+
+  // Shown as the writer types, before the API would say the same.
+  const coverAltError =
+    errorFor("cover.alt") ??
+    (fields.cover !== null && fields.cover.alt.trim() === ""
+      ? NO_ALT
+      : undefined);
 
   const titleHint =
     fields.title.length > TITLE_WARN_LENGTH
@@ -359,6 +367,66 @@ export function PostEditor({
               {...described("featured", true)}
             />,
             `Optional. 1 to ${MAX_FEATURED}: its place in "Start here" on the home page.`,
+          )}
+        </fieldset>
+
+        <fieldset>
+          <legend>Cover image</legend>
+          {fields.cover === null ? (
+            <>
+              <ImagePicker
+                id="cover-picker"
+                title="Shown under the post title"
+                submitLabel="Upload cover"
+                onPicked={(cover) => update("cover", cover)}
+              />
+              {errorFor("cover") === undefined ? null : (
+                <p id="cover-error">{errorFor("cover")}</p>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Decorative here: its description is the field below. */}
+              <img
+                className="cover-preview"
+                src={fields.cover.src}
+                width={fields.cover.width}
+                height={fields.cover.height}
+                alt=""
+              />
+              {row(
+                "cover-alt",
+                "Cover alt text",
+                <textarea
+                  id="cover-alt"
+                  rows={2}
+                  value={fields.cover.alt}
+                  onChange={(event) =>
+                    fields.cover !== null &&
+                    update("cover", {
+                      ...fields.cover,
+                      alt: event.target.value,
+                    })
+                  }
+                  aria-invalid={coverAltError === undefined ? undefined : true}
+                  aria-describedby={
+                    coverAltError === undefined
+                      ? "cover-alt-hint"
+                      : "cover-alt-hint cover-alt-error"
+                  }
+                  required
+                />,
+                'What the image shows, e.g. "Kano city walls at dusk".',
+              )}
+              {errorFor("cover") === undefined ? null : (
+                <p id="cover-error">{errorFor("cover")}</p>
+              )}
+              <p>
+                <button type="button" onClick={() => update("cover", null)}>
+                  Remove cover
+                </button>
+              </p>
+            </>
           )}
         </fieldset>
 

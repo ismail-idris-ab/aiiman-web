@@ -61,6 +61,22 @@ export async function currentUser(
   return user?.status === "active" ? user : null;
 }
 
+/** 401 unless signed in; puts the user in res.locals.user. Responses are never cached. */
+export function requireUser(
+  deps: Pick<AuthDeps, "getStores" | "now">,
+): RequestHandler {
+  return async (req, res, next) => {
+    const user = await currentUser(req, deps);
+    if (user === null) {
+      res.status(401).json({ error: "Not signed in" });
+      return;
+    }
+    res.locals.user = user;
+    res.set("Cache-Control", "no-store");
+    next();
+  };
+}
+
 export function authRouter(deps: AuthDeps): Router {
   const { getStores, limiter, log, now } = deps;
   const router = Router();
