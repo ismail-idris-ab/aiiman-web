@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   docHeadings,
+  docImages,
   type Block,
   type Doc,
   type Inline,
@@ -9,9 +10,12 @@ import {
 } from "@aiiman/shared";
 import { Fragment, type ReactNode } from "react";
 
-import { Callout, MdxLink } from "@/components/mdx/components";
+import { Callout, MdxImage, MdxLink } from "@/components/mdx/components";
 
 import type { HighlightedCode } from "./highlight-code";
+
+/** Top-level blocks after which an image is assumed below the fold (as in remark-content). */
+const EARLY_BLOCKS = 3;
 
 /**
  * Renders a post body from the admin as React Server Components, with the
@@ -22,11 +26,22 @@ import type { HighlightedCode } from "./highlight-code";
 export function DocContent({
   doc,
   code = new Map(),
+  lazyImages = false,
 }: {
   doc: Doc;
   /** From `highlightCodeBlocks(doc)`; a block missing here renders unhighlighted. */
   code?: HighlightedCode;
+  /** The page already shows a priority image (the cover), so none in the body is. */
+  lazyImages?: boolean;
 }) {
+  // As for MDX: an image in the first few blocks is likely the LCP element.
+  const priority = lazyImages
+    ? undefined
+    : docImages({
+        type: "doc",
+        content: doc.content.slice(0, EARLY_BLOCKS),
+      })[0];
+
   // Ids in document order, made like rehype-slug does for MDX.
   const ids = docHeadings(doc).map((heading) => heading.id);
   let next = 0;
@@ -101,6 +116,18 @@ export function DocContent({
           <Callout key={index} title={node.attrs.title}>
             {blocks(node.content)}
           </Callout>
+        );
+      case "image":
+        return (
+          <MdxImage
+            key={index}
+            src={node.attrs.src}
+            alt={node.attrs.alt}
+            width={node.attrs.width}
+            height={node.attrs.height}
+            data-blur={node.attrs.blurDataURL}
+            data-priority={node.attrs === priority ? "true" : undefined}
+          />
         );
       case "codeBlock":
         return (

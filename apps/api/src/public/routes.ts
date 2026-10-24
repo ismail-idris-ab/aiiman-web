@@ -112,6 +112,7 @@ async function toPublicPosts(
     ...(post.featured === undefined ? {} : { featured: post.featured }),
     ...(post.canonical === undefined ? {} : { canonical: post.canonical }),
     noindex: post.noindex,
+    ...(post.cover === undefined ? {} : { cover: post.cover }),
     publishedAt: (post.publishedAt ?? post.updatedAt).toISOString(),
     updatedAt: post.updatedAt.toISOString(),
     authorName: names.get(post.authorId) ?? "",

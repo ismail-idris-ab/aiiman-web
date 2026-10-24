@@ -12,9 +12,12 @@ import {
   type Editor,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { useState } from "react";
 import { Callout } from "./callout";
+import { Image } from "./image-node";
+import { ImagePicker } from "./image-picker";
 
-/** Only what the shared document model allows; images and embeds come later. */
+/** Only what the shared document model allows; embeds come later. */
 const extensions = [
   StarterKit.configure({
     heading: { levels: [2, 3, 4] },
@@ -34,6 +37,7 @@ const extensions = [
     },
   }),
   Callout,
+  Image,
 ];
 
 interface Tool {
@@ -167,6 +171,8 @@ export function RichEditor({
       onChange(normaliseDoc(current.getJSON())),
   });
 
+  const [picking, setPicking] = useState(false);
+
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => {
@@ -174,6 +180,10 @@ export function RichEditor({
       return {
         active: TOOLS.map((tool) => tool.isActive(current)),
         inCallout: current.isActive("callout"),
+        // null unless an image is selected.
+        imageAlt: current.isActive("image")
+          ? String(current.getAttributes("image").alt ?? "")
+          : null,
         // null outside a code block.
         codeLanguage: current.isActive("codeBlock")
           ? isCodeLanguage(language)
@@ -204,6 +214,14 @@ export function RichEditor({
             Callout title
           </button>
         ) : null}
+        <button
+          type="button"
+          aria-expanded={picking}
+          aria-controls={`${id}-image`}
+          onClick={() => setPicking((open) => !open)}
+        >
+          Image
+        </button>
         {state?.codeLanguage == null ? null : (
           <select
             aria-label="Code language"
@@ -223,7 +241,35 @@ export function RichEditor({
             ))}
           </select>
         )}
+        {state?.imageAlt == null ? null : (
+          <span className="toolbar-field">
+            <label htmlFor={`${id}-image-alt`}>Alt text</label>
+            <input
+              id={`${id}-image-alt`}
+              value={state.imageAlt}
+              aria-invalid={state.imageAlt.trim() === "" ? true : undefined}
+              // Typing here keeps the image selected; focus stays in the field.
+              onChange={(event) =>
+                editor.commands.setImageAlt(event.target.value)
+              }
+            />
+          </span>
+        )}
       </div>
+      {picking ? (
+        <div id={`${id}-image`}>
+          <ImagePicker
+            id={`${id}-image-picker`}
+            title="Insert an image"
+            submitLabel="Upload and insert"
+            onPicked={(image) => {
+              editor.chain().focus().insertImage(image).run();
+              setPicking(false);
+            }}
+            onCancel={() => setPicking(false)}
+          />
+        </div>
+      ) : null}
       <EditorContent editor={editor} />
     </div>
   );

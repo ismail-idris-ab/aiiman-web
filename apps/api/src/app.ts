@@ -7,6 +7,7 @@ import { authRouter } from "./auth/routes.js";
 import { requireSameOrigin } from "./http/origin.js";
 import { postsRouter, type PostDeps } from "./posts/routes.js";
 import { previewRouter, publicRouter } from "./public/routes.js";
+import { uploadsRouter, type UploadDeps } from "./uploads/routes.js";
 
 export type Logger = (event: string, fields?: Record<string, unknown>) => void;
 
@@ -15,7 +16,7 @@ export class ServiceUnavailableError extends Error {
   override name = "ServiceUnavailableError";
 }
 
-export interface AppDeps extends PostDeps {
+export interface AppDeps extends PostDeps, UploadDeps {
   /** SITE_API_SECRET: the site authenticates draft-preview reads with it. */
   siteSecret: string | undefined;
   /** Resolves true when the database answers a ping. */
@@ -46,6 +47,7 @@ export function createApp(deps: AppDeps): Express {
 
   app.use("/api/auth", authRouter(deps));
   app.use("/api/posts", postsRouter(deps));
+  app.use("/api/uploads", uploadsRouter(deps));
   app.use("/api/public", publicRouter(deps));
   app.use("/api/preview", previewRouter({ ...deps, secret: deps.siteSecret }));
 

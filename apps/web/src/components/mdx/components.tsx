@@ -45,7 +45,7 @@ export function MdxLink({
   );
 }
 
-type MdxImageProps = ComponentPropsWithoutRef<"img"> & {
+export type MdxImageProps = ComponentPropsWithoutRef<"img"> & {
   "data-blur"?: string;
   "data-priority"?: string;
 };
@@ -54,8 +54,9 @@ type MdxImageProps = ComponentPropsWithoutRef<"img"> & {
  * Colocated images arrive with width, height and a blur placeholder from the
  * content build. An image near the top of the body is flagged `data-priority`
  * and loads eagerly at high priority (it is usually the LCP element).
+ * Admin post images render through it too.
  */
-function MdxImage({
+export function MdxImage({
   src,
   alt,
   width,
