@@ -7,8 +7,8 @@ import { getPage } from "@/lib/content";
 import { formatDate, isoDay } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo/metadata";
 
-export function mdxPageMetadata(slug: string): Metadata {
-  const page = getPage(slug);
+export async function mdxPageMetadata(slug: string): Promise<Metadata> {
+  const page = await getPage(slug);
   if (page === undefined) return {};
   return pageMetadata({
     title: page.title,
@@ -18,8 +18,14 @@ export function mdxPageMetadata(slug: string): Metadata {
 }
 
 /** Renders a page from content/pages/<slug>.mdx; 404s while the page is a draft in production. */
-export function MdxPage({ slug, after }: { slug: string; after?: ReactNode }) {
-  const page = getPage(slug);
+export async function MdxPage({
+  slug,
+  after,
+}: {
+  slug: string;
+  after?: ReactNode;
+}) {
+  const page = await getPage(slug);
   if (page === undefined) notFound();
 
   return (

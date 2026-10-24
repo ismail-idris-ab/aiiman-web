@@ -19,8 +19,8 @@ const STATUS_HEADINGS: Record<ProjectStatus, string> = {
   archived: "Archived",
 };
 
-export default function ProjectsPage() {
-  const projects = getProjects();
+export default async function ProjectsPage() {
+  const projects = await getProjects();
   const groups = PROJECT_STATUSES.map((status) => ({
     status,
     projects: projects.filter((project) => project.status === status),

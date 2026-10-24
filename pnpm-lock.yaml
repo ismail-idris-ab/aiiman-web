@@ -23,6 +23,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@aiiman/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -66,6 +69,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aiiman/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
@@ -115,6 +121,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@aiiman/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@upstash/ratelimit':
         specifier: ^2.2.0
         version: 2.2.0(@upstash/redis@1.39.0)
@@ -206,6 +215,28 @@ importers:
       velite:
         specifier: ^0.4.0
         version: 0.4.0
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@types/node@22.20.5)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15))
+
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.0
+        version: 9.39.5
+      eslint:
+        specifier: ^9.39.5
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      typescript-eslint:
+        specifier: ^8.72.0
+        version: 8.72.0(eslint@9.39.5(jiti@2.7.0))(typescript@6.0.3)
       vitest:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@22.20.5)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15))

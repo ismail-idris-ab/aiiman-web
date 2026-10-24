@@ -20,9 +20,9 @@ export const metadata: Metadata = pageMetadata({
 const LIST_ID = "archive-list";
 const itemId = (item: Item) => `${item.kind}:${item.slug}`;
 
-export default function WritingPage() {
-  const items = getItems();
-  const tags = getTags();
+export default async function WritingPage() {
+  const items = await getItems();
+  const tags = await getTags();
 
   const years = new Map<string, Item[]>();
   for (const item of items) {

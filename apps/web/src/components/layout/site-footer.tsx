@@ -27,11 +27,16 @@ const FOOTER_LINKS: ReadonlyArray<{
   { href: "/privacy", label: "Privacy", page: "privacy" },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
   const socials = (
     Object.entries(siteConfig.socials) as Array<[SocialKey, string | null]>
   ).filter((entry): entry is [SocialKey, string] => entry[1] !== null);
   const year = new Date().getUTCFullYear();
+  const links = [];
+  for (const link of FOOTER_LINKS) {
+    if (link.page === undefined || (await getPage(link.page)) !== undefined)
+      links.push(link);
+  }
 
   return (
     <footer className="mt-24 border-t border-border">
@@ -42,9 +47,7 @@ export function SiteFooter() {
         </p>
         <nav aria-label="Footer">
           <ul className="grid grid-cols-2 gap-x-8 gap-y-2">
-            {FOOTER_LINKS.filter(
-              ({ page }) => page === undefined || getPage(page) !== undefined,
-            ).map(({ href, label }) => (
+            {links.map(({ href, label }) => (
               <li key={href}>
                 <Link
                   href={href}

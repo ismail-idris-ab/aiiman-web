@@ -4,10 +4,10 @@ import { siteUrl } from "@/env";
 import { getPage } from "@/lib/content";
 import { profilePageJsonLd } from "@/lib/seo/jsonld";
 
-export const metadata = mdxPageMetadata("about");
+export const generateMetadata = () => mdxPageMetadata("about");
 
-export default function Page() {
-  const page = getPage("about");
+export default async function Page() {
+  const page = await getPage("about");
   return (
     <MdxPage
       slug="about"
