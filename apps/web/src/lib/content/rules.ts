@@ -3,6 +3,8 @@
  * without running Velite.
  */
 
+import { REQUIRED_PAGES } from "@aiiman/shared/vocab";
+
 import { RESERVED_SLUGS, SLUG_PATTERN, type Lang } from "./model";
 
 /** Minimal mdast shape: enough to walk the tree without pulling in unist types. */
@@ -171,8 +173,7 @@ export function findCollectionIssues(
   return issues;
 }
 
-/** Pages every published page links to (nav, footer, bylines, Person JSON-LD, newsletter consent). */
-export const REQUIRED_PAGES = ["about", "privacy"] as const;
+export { REQUIRED_PAGES };
 
 export interface RulePage {
   slug: string;

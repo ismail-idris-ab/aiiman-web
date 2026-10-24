@@ -1,16 +1,22 @@
-import type { Doc, PostInput, PostStatus } from "@aiiman/shared";
+import type { PostInput, PostStatus } from "@aiiman/shared";
 
-export interface Post {
+/** A post as the API returns it: the writer's fields plus workflow state. */
+export type Post = PostInput & {
   id: string;
-  slug: string;
-  title: string;
-  summary: string;
-  body: Doc;
   status: PostStatus;
   authorId: string;
   updatedAt: string;
   publishedAt: string | null;
+};
+
+export interface Previews {
+  search: { title: string; description: string; url: string; indexed: boolean };
+  shareImageUrl: string;
+  readerUrl: string;
 }
+
+export type PreviewResult =
+  { ok: true; previews: Previews } | { ok: false; error: string };
 
 export type PostResult =
   | { ok: true; post: Post; revalidated?: boolean }
@@ -27,6 +33,10 @@ function isPost(value: unknown): value is Post {
     typeof post.title === "string" &&
     typeof post.summary === "string" &&
     typeof post.body === "object" &&
+    typeof post.type === "string" &&
+    Array.isArray(post.tags) &&
+    typeof post.lang === "string" &&
+    typeof post.noindex === "boolean" &&
     (post.status === "draft" || post.status === "published") &&
     typeof post.updatedAt === "string"
   );
@@ -117,6 +127,41 @@ export const publishPost = (id: string, fetcher: typeof fetch = fetch) =>
     { method: "POST" },
     fetcher,
   );
+
+function isPreviews(value: unknown): value is Previews {
+  const body = record(value);
+  const search = record(body.search);
+  return (
+    typeof search.title === "string" &&
+    typeof search.description === "string" &&
+    typeof search.url === "string" &&
+    typeof search.indexed === "boolean" &&
+    typeof body.shareImageUrl === "string" &&
+    typeof body.readerUrl === "string"
+  );
+}
+
+/** Search, share and reader previews of the saved post, rendered by the site. */
+export async function previewPost(
+  id: string,
+  fetcher: typeof fetch = fetch,
+): Promise<PreviewResult> {
+  try {
+    const res = await fetcher(`/api/posts/${encodeURIComponent(id)}/preview`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    const body: unknown = await res.json().catch(() => null);
+    if (res.ok && isPreviews(body)) return { ok: true, previews: body };
+    const { error } = record(body);
+    return {
+      ok: false,
+      error: typeof error === "string" ? error : GENERIC_ERROR,
+    };
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
 
 // Hausa hooked letters have no Unicode decomposition, so NFKD alone would drop them.
 const HAUSA: Record<string, string> = { ɓ: "b", ɗ: "d", ƙ: "k", ƴ: "y" };

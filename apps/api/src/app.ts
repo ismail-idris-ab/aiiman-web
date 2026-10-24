@@ -6,7 +6,7 @@ import express, {
 import { authRouter } from "./auth/routes.js";
 import { requireSameOrigin } from "./http/origin.js";
 import { postsRouter, type PostDeps } from "./posts/routes.js";
-import { publicRouter } from "./public/routes.js";
+import { previewRouter, publicRouter } from "./public/routes.js";
 
 export type Logger = (event: string, fields?: Record<string, unknown>) => void;
 
@@ -16,6 +16,8 @@ export class ServiceUnavailableError extends Error {
 }
 
 export interface AppDeps extends PostDeps {
+  /** SITE_API_SECRET: the site authenticates draft-preview reads with it. */
+  siteSecret: string | undefined;
   /** Resolves true when the database answers a ping. */
   checkDatabase: () => Promise<boolean>;
 }
@@ -45,6 +47,7 @@ export function createApp(deps: AppDeps): Express {
   app.use("/api/auth", authRouter(deps));
   app.use("/api/posts", postsRouter(deps));
   app.use("/api/public", publicRouter(deps));
+  app.use("/api/preview", previewRouter({ ...deps, secret: deps.siteSecret }));
 
   app.use(notFound);
 

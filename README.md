@@ -75,16 +75,16 @@ CI (`.github/workflows/ci.yml`) runs all of the above plus Lighthouse CI (mobile
 
 All optional. Set them in Vercel → Project → Settings → Environment Variables (Production); locally in `apps/web/.env.local`. Never commit `.env*` files except `.env.example`.
 
-| Variable                                              | Scope  | Effect                                                                                                                                      |
-| ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BUTTONDOWN_API_KEY`                                  | server | Turns on the newsletter form. Unset: the form shows "coming soon"                                                                           |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | server | Shared newsletter rate limit across instances. Unset: an in-memory limit per instance applies                                               |
-| `GOOGLE_SITE_VERIFICATION`                            | server | Content value of Google Search Console's HTML-tag verification                                                                              |
-| `BING_SITE_VERIFICATION`                              | server | Content value of Bing Webmaster Tools' `msvalidate.01` tag                                                                                  |
-| `NEXT_PUBLIC_SITE_URL`                                | public | Overrides the canonical origin from `src/site.config.ts`. Leave unset in production; the e2e build sets it to localhost                     |
-| `CONTENT_API_URL`                                     | server | Preview deploys and local builds add posts published in the admin, read from this API. Ignored in production until switch-over              |
-| `REVALIDATE_SECRET`                                   | server | 32+ random characters, same as the API's `SITE_REVALIDATE_SECRET`. Lets the API refresh the site after a publish via `POST /api/revalidate` |
-| `VERCEL_DEPLOY_HOOK_URL`                              | GitHub | **GitHub Actions secret**, not a Vercel variable. The daily rebuild that publishes future-dated posts POSTs it at 00:05 WAT                 |
+| Variable                                              | Scope  | Effect                                                                                                                                               |
+| ----------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BUTTONDOWN_API_KEY`                                  | server | Turns on the newsletter form. Unset: the form shows "coming soon"                                                                                    |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | server | Shared newsletter rate limit across instances. Unset: an in-memory limit per instance applies                                                        |
+| `GOOGLE_SITE_VERIFICATION`                            | server | Content value of Google Search Console's HTML-tag verification                                                                                       |
+| `BING_SITE_VERIFICATION`                              | server | Content value of Bing Webmaster Tools' `msvalidate.01` tag                                                                                           |
+| `NEXT_PUBLIC_SITE_URL`                                | public | Overrides the canonical origin from `src/site.config.ts`. Leave unset in production; the e2e build sets it to localhost                              |
+| `CONTENT_API_URL`                                     | server | Preview deploys and local builds add posts published in the admin, read from this API. Ignored in production until switch-over                       |
+| `SITE_API_SECRET`                                     | server | 32+ random characters, same value as `SITE_API_SECRET` in the API. Authenticates `POST /api/revalidate` and verifies the admin's draft-preview links |
+| `VERCEL_DEPLOY_HOOK_URL`                              | GitHub | **GitHub Actions secret**, not a Vercel variable. The daily rebuild that publishes future-dated posts POSTs it at 00:05 WAT                          |
 
 `VERCEL_ENV` is set by Vercel itself: anything other than `production` makes the deploy fully `noindex`.
 
