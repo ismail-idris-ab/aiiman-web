@@ -18,6 +18,7 @@ const envSchema = z
       .min(32, "SITE_API_SECRET must be at least 32 characters")
       .optional(),
     SITE_PROTECTION_BYPASS: z.string().min(1).optional(),
+    BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   })
   .refine(
     (env) =>

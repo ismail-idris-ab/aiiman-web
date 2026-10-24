@@ -82,6 +82,29 @@ describe("postToEntry", () => {
     });
   });
 
+  it("maps the cover onto the Entry's cover and cover alt", () => {
+    const entry = postToEntry({
+      ...post,
+      cover: {
+        src: "https://abc123.public.blob.vercel-storage.com/images/cover.webp",
+        alt: "Kano city walls at dusk",
+        width: 1600,
+        height: 900,
+        blurDataURL: "data:image/webp;base64,UklGRkAAAABXRUJQ",
+      },
+    });
+    expect(entry.cover).toEqual({
+      src: "https://abc123.public.blob.vercel-storage.com/images/cover.webp",
+      width: 1600,
+      height: 900,
+      blurDataURL: "data:image/webp;base64,UklGRkAAAABXRUJQ",
+      blurWidth: 8,
+      blurHeight: 5,
+    });
+    expect(entry.coverAlt).toBe("Kano city walls at dusk");
+    expect(postToEntry(post).cover).toBeUndefined();
+  });
+
   it("marks a preview of an unpublished post as a draft", () => {
     expect(postToEntry(post, { draft: true }).draft).toBe(true);
   });

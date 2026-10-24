@@ -2,6 +2,7 @@ import {
   EMPTY_DOC,
   type Doc,
   type EntryType,
+  type ImageInput,
   type Lang,
   type PostInput,
 } from "@aiiman/shared";
@@ -22,6 +23,8 @@ export interface Fields {
   canonical: string;
   noindex: boolean;
   body: Doc;
+  /** Alt as typed; the API trims it and requires it. */
+  cover: ImageInput | null;
 }
 
 export const EMPTY_FIELDS: Fields = {
@@ -37,6 +40,7 @@ export const EMPTY_FIELDS: Fields = {
   canonical: "",
   noindex: false,
   body: EMPTY_DOC,
+  cover: null,
 };
 
 export function fieldsOf(post: Post): Fields {
@@ -53,6 +57,7 @@ export function fieldsOf(post: Post): Fields {
     canonical: post.canonical ?? "",
     noindex: post.noindex,
     body: post.body,
+    cover: post.cover ?? null,
   };
 }
 
@@ -89,5 +94,6 @@ export function inputOf(fields: Fields): PostInput {
     // A non-number becomes NaN, which JSON sends as null; the API rejects it with its own message.
     ...(featured === undefined ? {} : { featured: Number(featured) }),
     ...(canonical === undefined ? {} : { canonical }),
+    ...(fields.cover === null ? {} : { cover: fields.cover }),
   };
 }

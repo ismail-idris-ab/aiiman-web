@@ -12,6 +12,8 @@ export interface RequestOptions {
   body?: unknown;
   /** Sent as-is with a JSON content type, for malformed-body tests. */
   rawBody?: string;
+  /** A non-JSON body (an image upload) with its content type. */
+  binary?: { data: Uint8Array; type: string };
   cookie?: string;
   /** Defaults to the server's own origin; pass null to omit the header. */
   origin?: string | null;
@@ -25,6 +27,7 @@ export async function request(
     method = "GET",
     body,
     rawBody,
+    binary,
     cookie,
     origin,
     headers = {},
@@ -38,13 +41,17 @@ export async function request(
   if (body !== undefined || rawBody !== undefined) {
     finalHeaders["content-type"] = "application/json";
   }
+  if (binary !== undefined) finalHeaders["content-type"] = binary.type;
   if (cookie !== undefined) finalHeaders.cookie = cookie;
   if (origin !== null) finalHeaders.origin = origin ?? base;
   try {
     return await fetch(`${base}${path}`, {
       method,
       headers: finalHeaders,
-      body: rawBody ?? (body === undefined ? undefined : JSON.stringify(body)),
+      body:
+        binary?.data ??
+        rawBody ??
+        (body === undefined ? undefined : JSON.stringify(body)),
     });
   } finally {
     server.close();
@@ -74,6 +81,7 @@ export function testDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     getStores: async (): Promise<Stores> => {
       throw new Error("stores not provided");
     },
+    images: undefined,
     limiter: createMemoryLimiter(),
     log: vi.fn(),
     now: () => new Date(),

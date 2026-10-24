@@ -9,6 +9,7 @@ import { getClient, pingDatabase } from "./db.js";
 import { parseEnv } from "./env.js";
 import { createSiteClient } from "./site.js";
 import { createMongoStores, type Stores } from "./store.js";
+import { createBlobStore } from "./uploads/blob.js";
 
 const env = parseEnv(process.env);
 
@@ -49,6 +50,7 @@ const app = createApp({
     stores ??= createMongoStores(getClient(env.MONGODB_URI).db(env.MONGODB_DB));
     return stores;
   },
+  images: createBlobStore(env.BLOB_READ_WRITE_TOKEN),
   limiter: limiter(),
   log,
   siteSecret: env.SITE_API_SECRET,

@@ -15,6 +15,13 @@ const post: Post = {
   date: "2026-10-22",
   featured: 4,
   noindex: true,
+  cover: {
+    src: "https://abc123.public.blob.vercel-storage.com/images/cover.webp",
+    alt: "Kano city walls at dusk",
+    width: 1600,
+    height: 900,
+    blurDataURL: "data:image/webp;base64,UklGRkAAAABXRUJQ",
+  },
   status: "draft",
   authorId: "u1",
   updatedAt: "2026-10-22T09:00:00.000Z",
@@ -44,8 +51,9 @@ describe("fieldsOf / inputOf", () => {
       date: " ",
       featured: "",
       canonical: "",
+      cover: null,
     });
-    for (const key of ["date", "updated", "featured", "canonical"]) {
+    for (const key of ["date", "updated", "featured", "canonical", "cover"]) {
       expect(input).not.toHaveProperty(key);
     }
   });
