@@ -2,9 +2,7 @@ import { writeFileSync } from "node:fs";
 import { relative } from "node:path";
 
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
-import rehypePrettyCode, {
-  type Options as PrettyCodeOptions,
-} from "rehype-pretty-code";
+import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import {
   defineCollection,
@@ -21,6 +19,7 @@ import {
   PROJECT_STATUSES,
   TAG_PATTERN,
 } from "./src/lib/content/model";
+import { prettyCodeOptions } from "./src/lib/content/pretty-code";
 import { remarkContent } from "./src/lib/content/remark-content";
 import {
   findCollectionIssues,
@@ -37,15 +36,6 @@ const output = {
   base: "/static/",
   name: "[name]-[hash:8].[ext]",
 } as const;
-
-const prettyCode: PrettyCodeOptions = {
-  theme: {
-    light: "github-light-high-contrast",
-    dark: "github-dark-high-contrast",
-  },
-  keepBackground: false,
-  defaultLang: "plaintext",
-};
 
 /** Repo-relative source path, used to name files in build errors. */
 const sourceOf = (meta: ZodMeta) =>
@@ -252,7 +242,7 @@ export default defineConfig({
     copyLinkedFiles: false,
     remarkPlugins: [[remarkContent, { name: output.name, base: output.base }]],
     rehypePlugins: [
-      [rehypePrettyCode, prettyCode],
+      [rehypePrettyCode, prettyCodeOptions],
       rehypeSlug,
       [
         rehypeAutolinkHeadings,

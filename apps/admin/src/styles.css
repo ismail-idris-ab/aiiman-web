@@ -183,6 +183,26 @@ img {
   font-weight: 600;
 }
 
+.rich-editor-content pre {
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--accent-soft);
+  font-size: 0.875rem;
+  /* Code keeps its own lines; the page never scrolls sideways. */
+  white-space: pre;
+}
+
+.rich-editor-content pre code {
+  padding: 0;
+  background: none;
+}
+
+.toolbar select {
+  width: auto;
+}
+
 .rich-editor-content code {
   padding: 0.1em 0.3em;
   border-radius: 0.25rem;
