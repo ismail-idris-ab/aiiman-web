@@ -1,0 +1,57 @@
+{
+  "name": "@aiiman/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "content": "velite build --clean --strict",
+    "search-index": "tsx scripts/build-search-index.ts",
+    "check:bundle": "tsx scripts/check-bundle.ts",
+    "build": "pnpm content && pnpm search-index && next build && pnpm check:bundle",
+    "build:e2e": "CONTENT_DIR=tests/e2e/fixtures/content NEXT_PUBLIC_SITE_URL=http://localhost:3100 pnpm build",
+    "start": "next start",
+    "typecheck": "pnpm content && next typegen && tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "dependencies": {
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "minisearch": "^7.2.0",
+    "next": "16.4.2",
+    "next-themes": "^0.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/turbopack": "^4.3.3",
+    "@tailwindcss/typography": "^0.5.20",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.2",
+    "fast-xml-parser": "^5.11.2",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-pretty-code": "^0.14.5",
+    "rehype-slug": "^6.0.0",
+    "shiki": "^4.5.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "velite": "^0.4.0",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
