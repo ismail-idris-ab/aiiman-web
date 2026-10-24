@@ -7,8 +7,8 @@ import { siteConfig } from "@/site.config";
 /* Single-image route so generateStaticParams here prerenders every card (see [slug]/opengraph-image). */
 export const dynamicParams = false;
 
-export function generateStaticParams() {
-  return getTags().map(({ tag }) => ({ tag }));
+export async function generateStaticParams() {
+  return (await getTags()).map(({ tag }) => ({ tag }));
 }
 
 export const alt = `Title card for a tag page on ${siteConfig.name}, showing the tag and post count`;
@@ -21,7 +21,7 @@ export default async function Image({
   params: Promise<{ tag: string }>;
 }) {
   const { tag } = await params;
-  const count = getTagCount(tag);
+  const count = await getTagCount(tag);
   if (count === 0) notFound();
   return renderOgCard({
     title: `#${tag}`,

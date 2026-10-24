@@ -1,8 +1,8 @@
-import { content } from "@/lib/content";
+import { contentMode } from "@/lib/content";
 
 /** Shown on every page of dev and preview builds, where drafts and scheduled Items are visible. */
 export function PreviewBanner() {
-  if (content.mode !== "authoring") return null;
+  if (contentMode !== "authoring") return null;
   return (
     <div
       role="note"

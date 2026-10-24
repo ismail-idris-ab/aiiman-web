@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   title: "Page not found",
 };
 
-export default function NotFound() {
-  const latest = getLatest(5);
+export default async function NotFound() {
+  const latest = await getLatest(5);
   return (
     <div className="max-w-measure">
       <h1 className="font-serif text-4xl font-bold tracking-tight">

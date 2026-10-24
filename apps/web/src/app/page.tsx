@@ -20,10 +20,10 @@ export const metadata: Metadata = pageMetadata({
 
 const LATEST_COUNT = 6;
 
-export default function HomePage() {
-  const featured = getFeatured();
-  const projects = getFeaturedProjects();
-  const latest = getLatest(LATEST_COUNT);
+export default async function HomePage() {
+  const featured = await getFeatured();
+  const projects = await getFeaturedProjects();
+  const latest = await getLatest(LATEST_COUNT);
 
   return (
     <div className="max-w-measure">
