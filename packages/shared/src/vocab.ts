@@ -81,3 +81,47 @@ export function calendarDate(now: Date, timeZone: string): string {
     day: "2-digit",
   }).format(now);
 }
+
+/**
+ * Languages a code block can be highlighted as (Shiki ids), with editor
+ * labels. Anything else is stored and rendered as plain text.
+ */
+export const CODE_LANGUAGES = {
+  plaintext: "Plain text",
+  bash: "Bash",
+  shell: "Shell session",
+  typescript: "TypeScript",
+  tsx: "TSX",
+  javascript: "JavaScript",
+  jsx: "JSX",
+  json: "JSON",
+  html: "HTML",
+  css: "CSS",
+  markdown: "Markdown",
+  mdx: "MDX",
+  yaml: "YAML",
+  toml: "TOML",
+  sql: "SQL",
+  graphql: "GraphQL",
+  python: "Python",
+  go: "Go",
+  rust: "Rust",
+  java: "Java",
+  kotlin: "Kotlin",
+  swift: "Swift",
+  dart: "Dart",
+  php: "PHP",
+  ruby: "Ruby",
+  c: "C",
+  cpp: "C++",
+  csharp: "C#",
+  dockerfile: "Dockerfile",
+  diff: "Diff",
+  nginx: "Nginx",
+  prisma: "Prisma",
+} as const;
+
+export type CodeLanguage = keyof typeof CODE_LANGUAGES;
+
+export const isCodeLanguage = (value: unknown): value is CodeLanguage =>
+  typeof value === "string" && Object.hasOwn(CODE_LANGUAGES, value);

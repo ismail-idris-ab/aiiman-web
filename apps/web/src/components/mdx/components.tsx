@@ -125,7 +125,8 @@ function YouTube({ id, title }: { id: string; title: string }) {
   return <YouTubeFacade id={id} title={title} />;
 }
 
-function Pre(props: ComponentPropsWithoutRef<"pre">) {
+/** A code block with its copy button; shared by MDX and admin posts. */
+export function Pre(props: ComponentPropsWithoutRef<"pre">) {
   return (
     <div className="group relative">
       <pre {...props} />

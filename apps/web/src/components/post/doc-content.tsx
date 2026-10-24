@@ -11,13 +11,22 @@ import { Fragment, type ReactNode } from "react";
 
 import { Callout, MdxLink } from "@/components/mdx/components";
 
+import type { HighlightedCode } from "./highlight-code";
+
 /**
  * Renders a post body from the admin as React Server Components, with the
  * same elements, heading anchors, links and callouts the MDX pipeline
  * produces. The doc is already normalised against the shared allowlist, and
  * text is only ever rendered as text, never as HTML.
  */
-export function DocContent({ doc }: { doc: Doc }) {
+export function DocContent({
+  doc,
+  code = new Map(),
+}: {
+  doc: Doc;
+  /** From `highlightCodeBlocks(doc)`; a block missing here renders unhighlighted. */
+  code?: HighlightedCode;
+}) {
   // Ids in document order, made like rehype-slug does for MDX.
   const ids = docHeadings(doc).map((heading) => heading.id);
   let next = 0;
@@ -92,6 +101,16 @@ export function DocContent({ doc }: { doc: Doc }) {
           <Callout key={index} title={node.attrs.title}>
             {blocks(node.content)}
           </Callout>
+        );
+      case "codeBlock":
+        return (
+          <Fragment key={index}>
+            {code.get(node) ?? (
+              <pre>
+                <code>{node.content?.[0].text}</code>
+              </pre>
+            )}
+          </Fragment>
         );
     }
   };

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/layout/json-ld";
 import { MdxContent } from "@/components/mdx/mdx-content";
 import { DocContent } from "@/components/post/doc-content";
+import { highlightCodeBlocks } from "@/components/post/highlight-code";
 import { NewsletterBox } from "@/components/newsletter/newsletter-box";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ItemList } from "@/components/ui/item-list";
@@ -188,7 +189,10 @@ export default async function EntryPage({ params }: PageProps<"/[slug]">) {
               lazyImages={entry.cover !== undefined}
             />
           ) : (
-            <DocContent doc={entry.doc} />
+            <DocContent
+              doc={entry.doc}
+              code={await highlightCodeBlocks(entry.doc)}
+            />
           )}
         </div>
 
