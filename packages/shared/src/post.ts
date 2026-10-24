@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { countNodes, MAX_NODES, normaliseDoc } from "./doc.js";
+import {
+  countNodes,
+  docImages,
+  isBlurDataUrl,
+  MAX_ALT_LENGTH,
+  MAX_NODES,
+  normaliseDoc,
+} from "./doc.js";
 import {
   ENTRY_TYPES,
+  isBlobImageUrl,
   LANGS,
   MAX_FEATURED,
   MAX_TAGS,
@@ -23,7 +31,38 @@ export const docSchema = z
   .refine(
     (doc) => countNodes(doc) <= MAX_NODES,
     "This post is too long to save. Split it into parts.",
-  );
+  )
+  .superRefine((doc, ctx) => {
+    const missing = docImages(doc).flatMap((image, index) =>
+      image.alt === "" ? [index + 1] : [],
+    );
+    if (missing.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Add alt text to image ${missing.join(", ")}: describe it for readers who can't see it.`,
+      });
+    }
+  });
+
+/** An uploaded image with its alt text, e.g. the cover. */
+export const imageSchema = z.object({
+  src: z
+    .string()
+    .refine(isBlobImageUrl, "Upload the image here instead of linking it"),
+  alt: z
+    .string()
+    .trim()
+    .min(1, "Add alt text: describe the image for readers who can't see it")
+    .max(
+      MAX_ALT_LENGTH,
+      `Alt text can be at most ${MAX_ALT_LENGTH} characters`,
+    ),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  blurDataURL: z.string().refine(isBlurDataUrl),
+});
+
+export type ImageInput = z.infer<typeof imageSchema>;
 
 export const slugSchema = z
   .string()
@@ -87,6 +126,8 @@ export const postInputSchema = z
       .optional(),
     canonical: httpsUrl.optional(),
     noindex: z.boolean(),
+    /** Shown under the post header only; share previews use the generated card. */
+    cover: imageSchema.optional(),
   })
   .superRefine((post, ctx) => {
     if (post.updated === undefined) return;
@@ -113,6 +154,7 @@ export const OPTIONAL_POST_FIELDS = [
   "updated",
   "featured",
   "canonical",
+  "cover",
 ] as const satisfies ReadonlyArray<keyof PostInput>;
 
 export const POST_STATUSES = ["draft", "published"] as const;
@@ -131,6 +173,7 @@ export const publicPostSchema = z.object({
   featured: z.number().int().optional(),
   canonical: httpsUrl.optional(),
   noindex: z.boolean(),
+  cover: imageSchema.optional(),
   publishedAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   authorName: z.string(),

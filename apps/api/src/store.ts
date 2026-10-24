@@ -42,6 +42,18 @@ export type Post = PostInput & {
 export type PostChanges = Partial<Omit<Post, "id" | "authorId" | "createdAt">> &
   Pick<Post, "updatedAt">;
 
+/** An image the API stored in Blob, with the measurements posts must match. */
+export interface Upload {
+  url: string;
+  width: number;
+  height: number;
+  blurDataURL: string;
+  contentType: string;
+  bytes: number;
+  uploadedBy: string;
+  createdAt: Date;
+}
+
 /** Another post already uses this slug or featured position. */
 export class DuplicateFieldError extends Error {
   override name = "DuplicateFieldError";
@@ -80,6 +92,10 @@ export interface Stores {
     /** Slugs of published pages, or null while pages still live in the site's MDX (#20). */
     publishedSlugs(): Promise<string[] | null>;
   };
+  uploads: {
+    insert(upload: Upload): Promise<void>;
+    findByUrls(urls: readonly string[]): Promise<Upload[]>;
+  };
   sessions: {
     insert(session: Session): Promise<void>;
     findValid(tokenHash: string, now: Date): Promise<Session | null>;
@@ -90,6 +106,7 @@ export interface Stores {
 type UserDoc = Omit<User, "id"> & { _id: string };
 type SessionDoc = Omit<Session, "tokenHash"> & { _id: string };
 type PostDoc = Omit<Post, "id"> & { _id: string };
+type UploadDoc = Omit<Upload, "url"> & { _id: string };
 interface PageDoc {
   _id: string;
   status: PostStatus;
@@ -137,6 +154,7 @@ export function createMongoStores(db: Db): Stores {
   const sessions: Collection<SessionDoc> = db.collection("sessions");
   const posts: Collection<PostDoc> = db.collection("posts");
   const pages: Collection<PageDoc> = db.collection("pages");
+  const uploads: Collection<UploadDoc> = db.collection("uploads");
 
   // Once per instance. The TTL index lets MongoDB delete expired sessions itself.
   indexesReady ??= Promise.all([
@@ -227,6 +245,15 @@ export function createMongoStores(db: Db): Stores {
         if ((await pages.estimatedDocumentCount()) === 0) return null;
         const docs = await pages.find({ status: "published" }).toArray();
         return docs.map((doc) => doc._id);
+      },
+    },
+    uploads: {
+      async insert({ url, ...rest }) {
+        await uploads.insertOne({ _id: url, ...rest });
+      },
+      async findByUrls(urls) {
+        const docs = await uploads.find({ _id: { $in: [...urls] } }).toArray();
+        return docs.map(({ _id, ...rest }) => ({ url: _id, ...rest }));
       },
     },
     sessions: {

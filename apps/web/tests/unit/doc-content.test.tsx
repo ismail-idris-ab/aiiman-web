@@ -125,6 +125,70 @@ describe("DocContent", () => {
     expect(source).not.toContain("dangerouslySetInnerHTML");
   });
 
+  describe("images", () => {
+    const image = (alt: string, name = "kano") => ({
+      type: "image",
+      attrs: {
+        src: `https://abc123.public.blob.vercel-storage.com/images/${name}.webp`,
+        alt,
+        width: 1600,
+        height: 900,
+        blurDataURL: "data:image/webp;base64,UklGRkAAAABXRUJQ",
+      },
+    });
+    const imgs = (html: string) => html.match(/<img [^>]*>/g) ?? [];
+
+    it("renders next/image with dimensions, alt and blur placeholder", () => {
+      const [img] = imgs(render(p(text("Intro")), image("Kano city walls")));
+      expect(img).toContain('alt="Kano city walls"');
+      expect(img).toContain('width="1600"');
+      expect(img).toContain('height="900"');
+      expect(img).toContain('sizes="(min-width: 768px) 43rem, 100vw"');
+      expect(img).toContain("srcSet=");
+      expect(img).toMatch(/background-image:url\(&quot;data:image\/svg\+xml/);
+    });
+
+    it("loads only an early first image eagerly", () => {
+      const html = render(
+        image("First", "a"),
+        p(text("Words")),
+        image("Second", "b"),
+      );
+      const [first, second] = imgs(html);
+      expect(first).toContain('loading="eager"');
+      expect(first).toContain('fetchPriority="high"');
+      expect(second).toContain('loading="lazy"');
+      expect(second).not.toContain("fetchPriority");
+    });
+
+    it("keeps images past the first blocks lazy", () => {
+      const html = render(
+        p(text("1")),
+        p(text("2")),
+        p(text("3")),
+        image("Late"),
+      );
+      expect(imgs(html)[0]).toContain('loading="lazy"');
+    });
+
+    it("keeps every body image lazy when the page has a cover", () => {
+      const html = renderToStaticMarkup(
+        <DocContent
+          doc={normaliseDoc({ type: "doc", content: [image("First")] })}
+          lazyImages
+        />,
+      );
+      expect(imgs(html)[0]).toContain('loading="lazy"');
+      expect(html).not.toContain("fetchPriority");
+    });
+
+    it("renders nothing for an image from another host", () => {
+      const foreign = image("Tracker");
+      foreign.attrs.src = "https://example.com/images/x.webp";
+      expect(render(foreign)).toBe("");
+    });
+  });
+
   describe("code blocks", () => {
     const renderHighlighted = async (...content: unknown[]) => {
       const doc = normaliseDoc({ type: "doc", content });
