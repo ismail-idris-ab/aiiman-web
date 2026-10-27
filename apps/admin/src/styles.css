@@ -294,3 +294,43 @@ img {
   border-radius: 0.5rem;
   overflow-wrap: anywhere;
 }
+
+/* Stays in view while the writer is deep in a long body. */
+.autosave-note {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 0 1rem;
+  padding: 0.25rem 0;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.autosave-note[role="alert"] {
+  color: var(--danger);
+}
+
+.conflict {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--danger);
+  border-radius: 0.375rem;
+}
+
+.history-panel ol {
+  padding-left: 1.25rem;
+}
+
+.history-panel li {
+  margin-bottom: 1rem;
+}
+
+.history-panel li p {
+  margin: 0.25rem 0;
+}
+
+.history-excerpt {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}

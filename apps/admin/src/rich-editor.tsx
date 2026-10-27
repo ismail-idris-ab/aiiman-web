@@ -12,7 +12,7 @@ import {
   type Editor,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Callout } from "./callout";
 import { Embed } from "./embed-node";
 import { EmbedPicker } from "./embed-picker";
@@ -79,7 +79,8 @@ function askCalloutTitle(editor: Editor) {
 
 const TOOLS: Tool[] = [
   ...([2, 3, 4] as const).map((level) => ({
-    label: `Heading ${level}`,
+    // The name contains the visible "H2" (WCAG 2.5.3, label in name).
+    label: `H${level} heading`,
     text: `H${level}`,
     isActive: (editor: Editor) => editor.isActive("heading", { level }),
     run: (editor: Editor) =>
@@ -111,13 +112,13 @@ const TOOLS: Tool[] = [
   },
   {
     label: "Bulleted list",
-    text: "• List",
+    text: "Bulleted",
     isActive: (editor) => editor.isActive("bulletList"),
     run: (editor) => editor.chain().focus().toggleBulletList().run(),
   },
   {
     label: "Numbered list",
-    text: "1. List",
+    text: "Numbered",
     isActive: (editor) => editor.isActive("orderedList"),
     run: (editor) => editor.chain().focus().toggleOrderedList().run(),
   },
@@ -152,6 +153,8 @@ export function RichEditor({
   onChange: (doc: Doc) => void;
   describedBy?: string | undefined;
 }) {
+  // The last document the editor emitted, to tell typing from a new value.
+  const emitted = useRef(value);
   const editor = useEditor({
     extensions,
     content: value,
@@ -170,9 +173,20 @@ export function RichEditor({
       },
     },
     // What the editor emits goes through the same allowlist the API applies.
-    onUpdate: ({ editor: current }) =>
-      onChange(normaliseDoc(current.getJSON())),
+    onUpdate: ({ editor: current }) => {
+      const doc = normaliseDoc(current.getJSON());
+      emitted.current = doc;
+      onChange(doc);
+    },
   });
+
+  // `content` is only read when the editor is created. A value that didn't
+  // come from typing here (the loaded post, a restored version) replaces it.
+  useEffect(() => {
+    if (editor === null || value === emitted.current) return;
+    emitted.current = value;
+    editor.commands.setContent(value, { emitUpdate: false });
+  }, [editor, value]);
 
   // The insert panel that is open, if any.
   const [panel, setPanel] = useState<"image" | "embed" | null>(null);

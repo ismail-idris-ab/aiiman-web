@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calendarDate,
+  draftInputSchema,
   missingRequiredPages,
   postInputSchema,
   publicPostSchema,
@@ -130,6 +131,51 @@ describe("postInputSchema", () => {
     for (const slug of ["api", "writing", "tags", "rss.xml", "md"]) {
       expect(RESERVED_SLUGS).toContain(slug);
     }
+  });
+});
+
+describe("draftInputSchema", () => {
+  it("saves what a writer has mid-way through", () => {
+    const draft = {
+      ...valid,
+      title: "",
+      summary: "Half a",
+      slug: "",
+      tags: ["React Native", "web-"],
+      canonical: "https://exam",
+      body: { type: "doc", content: [image("")] },
+      cover: { ...cover, alt: "" },
+    };
+    const parsed = draftInputSchema.safeParse(draft);
+    expect(parsed.success).toBe(true);
+    // The same draft can't go live.
+    expect(postInputSchema.safeParse(draft).success).toBe(false);
+  });
+
+  it.each([
+    [
+      "an image from elsewhere",
+      { cover: { ...cover, src: "https://example.com/x.png" } },
+      "cover.src",
+    ],
+    ["a title past the limit", { title: "x".repeat(71) }, "title"],
+    ["an unknown type", { type: "poem" }, "type"],
+    ["a featured position that isn't a number", { featured: null }, "featured"],
+    ["a malformed date", { date: "22/10/2026" }, "date"],
+  ])("still refuses %s", (_name, override, path) => {
+    const result = draftInputSchema.safeParse({ ...valid, ...override });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path.join("."))).toEqual([
+      path,
+    ]);
+  });
+
+  it("normalises the body like the publishing schema", () => {
+    const parsed = draftInputSchema.parse({
+      ...valid,
+      body: { type: "doc", content: [{ type: "script", text: "x" }] },
+    });
+    expect(parsed.body).toEqual({ type: "doc", content: [] });
   });
 });
 

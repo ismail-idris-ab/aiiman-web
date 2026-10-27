@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import {
   calendarDate,
   CONTENT_TIME_ZONE,
+  postInputSchema,
   type PreviewPost,
   type PublicPost,
 } from "@aiiman/shared";
@@ -71,7 +72,8 @@ export function previewRouter({
   router.get<{ id: string }>("/posts/:id", requireSite, async (req, res) => {
     const stores = await getStores();
     const post = await stores.posts.findById(req.params.id);
-    if (post === null) {
+    // Drafts save incomplete; the admin names what to fix before it offers a preview.
+    if (post === null || !postInputSchema.safeParse(post).success) {
       res.status(404).json({ error: "Not found" });
       return;
     }

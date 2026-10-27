@@ -38,7 +38,7 @@ export function PostsPage({
           {posts.map((post) => (
             <li key={post.id}>
               <button type="button" onClick={() => onOpen(post.id)}>
-                {post.title}
+                {post.title === "" ? "Untitled draft" : post.title}
               </button>{" "}
               {post.status === "published" ? "Published" : "Draft"}
             </li>

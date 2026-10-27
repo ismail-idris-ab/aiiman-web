@@ -1,10 +1,10 @@
 import {
   EMPTY_DOC,
   type Doc,
+  type DraftInput,
   type EntryType,
   type ImageInput,
   type Lang,
-  type PostInput,
 } from "@aiiman/shared";
 import type { Post } from "./posts";
 
@@ -75,7 +75,7 @@ const optional = (value: string) => {
 };
 
 /** Form state to API input. Empty optional fields are left out, which clears them. */
-export function inputOf(fields: Fields): PostInput {
+export function inputOf(fields: Fields): DraftInput {
   const featured = optional(fields.featured);
   const date = optional(fields.date);
   const updated = optional(fields.updated);

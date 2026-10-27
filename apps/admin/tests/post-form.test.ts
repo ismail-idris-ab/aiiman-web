@@ -26,6 +26,7 @@ const post: Post = {
   authorId: "u1",
   updatedAt: "2026-10-22T09:00:00.000Z",
   publishedAt: null,
+  version: 1,
 };
 
 describe("parseTags", () => {
@@ -41,7 +42,8 @@ describe("parseTags", () => {
 
 describe("fieldsOf / inputOf", () => {
   it("round-trips a post's fields", () => {
-    const { id, status, authorId, updatedAt, publishedAt, ...fields } = post;
+    const { id, status, authorId, updatedAt, publishedAt, version, ...fields } =
+      post;
     expect(inputOf(fieldsOf(post))).toEqual(fields);
   });
 
@@ -90,6 +92,22 @@ describe("previewPost", () => {
     expect(await previewPost("p1", fetcher)).toEqual({
       ok: false,
       error: "Previews need the site connection.",
+      fields: {},
+    });
+  });
+
+  it("names the fields a draft must fix before it can be previewed", async () => {
+    const fetcher = (async () =>
+      Response.json(
+        {
+          error: "Fix the highlighted fields before previewing",
+          fields: { summary: "Summary needs at least 50 characters" },
+        },
+        { status: 400 },
+      )) as typeof fetch;
+    expect(await previewPost("p1", fetcher)).toMatchObject({
+      ok: false,
+      fields: { summary: "Summary needs at least 50 characters" },
     });
   });
 });
