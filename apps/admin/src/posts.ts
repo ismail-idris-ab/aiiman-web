@@ -1,12 +1,14 @@
-import type { PostInput, PostStatus } from "@aiiman/shared";
+import type { DraftInput, PostStatus } from "@aiiman/shared";
 
 /** A post as the API returns it: the writer's fields plus workflow state. */
-export type Post = PostInput & {
+export type Post = DraftInput & {
   id: string;
   status: PostStatus;
   authorId: string;
   updatedAt: string;
   publishedAt: string | null;
+  /** Sent back with every edit, so one made on an older version is refused. */
+  version: number;
 };
 
 export interface Previews {
@@ -16,11 +18,31 @@ export interface Previews {
 }
 
 export type PreviewResult =
-  { ok: true; previews: Previews } | { ok: false; error: string };
+  | { ok: true; previews: Previews }
+  /** `fields`: what the saved post must fix before it can be previewed. */
+  | { ok: false; error: string; fields: Record<string, string> };
 
 export type PostResult =
-  | { ok: true; post: Post; revalidated?: boolean }
-  | { ok: false; error: string; fields: Record<string, string> };
+  | {
+      ok: true;
+      post: Post;
+      /** What the saved post still needs before it can go live. */
+      issues: Record<string, string>;
+      /** Fields a draft was saved without because another post holds the value. */
+      unsaved: Record<string, string>;
+      revalidated?: boolean;
+      /** For a restore: when the restored version was saved. */
+      restoredFrom?: string;
+    }
+  | {
+      ok: false;
+      error: string;
+      fields: Record<string, string>;
+      /** Someone saved since this version was loaded: the post as it is now. */
+      conflict?: Post;
+      /** The connection failed or the server erred: worth trying again. */
+      retry?: boolean;
+    };
 
 const GENERIC_ERROR = "Couldn't reach the server. Check your connection.";
 
@@ -38,7 +60,8 @@ function isPost(value: unknown): value is Post {
     typeof post.lang === "string" &&
     typeof post.noindex === "boolean" &&
     (post.status === "draft" || post.status === "published") &&
-    typeof post.updatedAt === "string"
+    typeof post.updatedAt === "string" &&
+    typeof post.version === "number"
   );
 }
 
@@ -58,25 +81,27 @@ function readFields(value: unknown): Record<string, string> {
 
 async function send(
   path: string,
-  init: RequestInit,
+  init: RequestInit & { version?: number },
   fetcher: typeof fetch,
 ): Promise<PostResult> {
+  const { version, ...rest } = init;
+  const headers: Record<string, string> = {};
+  if (init.body !== undefined) headers["content-type"] = "application/json";
+  if (version !== undefined) headers["if-match"] = `"${version}"`;
   try {
-    const res = await fetcher(path, {
-      ...init,
-      cache: "no-store",
-      headers:
-        init.body === undefined
-          ? undefined
-          : { "content-type": "application/json" },
-    });
+    const res = await fetcher(path, { ...rest, cache: "no-store", headers });
     const body = record(await res.json().catch(() => null));
     if (res.ok && isPost(body.post)) {
       return {
         ok: true,
         post: body.post,
+        issues: readFields(body.issues),
+        unsaved: readFields(body.unsaved),
         ...(typeof body.revalidated === "boolean"
           ? { revalidated: body.revalidated }
+          : {}),
+        ...(typeof body.restoredFrom === "string"
+          ? { restoredFrom: body.restoredFrom }
           : {}),
       };
     }
@@ -84,11 +109,25 @@ async function send(
       ok: false,
       error: typeof body.error === "string" ? body.error : GENERIC_ERROR,
       fields: readFields(body.fields),
+      ...(res.status === 412 && isPost(body.post)
+        ? { conflict: body.post }
+        : {}),
+      ...(res.status >= 500 ? { retry: true } : {}),
     };
   } catch {
-    return { ok: false, error: GENERIC_ERROR, fields: {} };
+    return { ok: false, error: GENERIC_ERROR, fields: {}, retry: true };
   }
 }
+
+export interface SaveOptions {
+  /** Saved without the writer asking: folds into the latest revision for a while. */
+  autosave?: boolean;
+  /** Lets the request finish after the tab closes. */
+  keepalive?: boolean;
+}
+
+const query = (autosave: boolean | undefined) =>
+  autosave ? "?autosave=1" : "";
 
 /** Posts the signed-in user may edit, or null when unreachable. */
 export async function listPosts(
@@ -107,17 +146,88 @@ export async function listPosts(
 export const getPost = (id: string, fetcher: typeof fetch = fetch) =>
   send(`/api/posts/${encodeURIComponent(id)}`, {}, fetcher);
 
-export const createPost = (input: PostInput, fetcher: typeof fetch = fetch) =>
-  send("/api/posts", { method: "POST", body: JSON.stringify(input) }, fetcher);
-
-export const updatePost = (
-  id: string,
-  input: PostInput,
+export const createPost = (
+  input: DraftInput,
+  { autosave, keepalive = false }: SaveOptions = {},
   fetcher: typeof fetch = fetch,
 ) =>
   send(
-    `/api/posts/${encodeURIComponent(id)}`,
-    { method: "PUT", body: JSON.stringify(input) },
+    `/api/posts${query(autosave)}`,
+    { method: "POST", body: JSON.stringify(input), keepalive },
+    fetcher,
+  );
+
+/** Saves `input` over `version`; refused with `conflict` if someone saved since. */
+export const updatePost = (
+  id: string,
+  version: number,
+  input: DraftInput,
+  { autosave, keepalive = false }: SaveOptions = {},
+  fetcher: typeof fetch = fetch,
+) =>
+  send(
+    `/api/posts/${encodeURIComponent(id)}${query(autosave)}`,
+    { method: "PUT", body: JSON.stringify(input), keepalive, version },
+    fetcher,
+  );
+
+export interface RevisionSummary {
+  id: string;
+  version: number;
+  kind: "autosave" | "save" | "restore";
+  savedAt: string;
+  savedBy: string;
+  title: string;
+  words: number;
+  excerpt: string;
+}
+
+function isRevision(value: unknown): value is RevisionSummary {
+  const revision = record(value);
+  return (
+    typeof revision.id === "string" &&
+    typeof revision.version === "number" &&
+    (revision.kind === "autosave" ||
+      revision.kind === "save" ||
+      revision.kind === "restore") &&
+    typeof revision.savedAt === "string" &&
+    typeof revision.savedBy === "string" &&
+    typeof revision.title === "string" &&
+    typeof revision.words === "number" &&
+    typeof revision.excerpt === "string"
+  );
+}
+
+/** The post's saved versions, newest first, or null when unreachable. */
+export async function listRevisions(
+  id: string,
+  fetcher: typeof fetch = fetch,
+): Promise<RevisionSummary[] | null> {
+  try {
+    const res = await fetcher(
+      `/api/posts/${encodeURIComponent(id)}/revisions`,
+      {
+        cache: "no-store",
+      },
+    );
+    if (!res.ok) return null;
+    const { revisions } = record(await res.json());
+    return Array.isArray(revisions) ? revisions.filter(isRevision) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Puts a saved version back over `version`; the replaced one stays in the history. */
+export const restoreRevision = (
+  id: string,
+  revisionId: string,
+  version: number,
+  fetcher: typeof fetch = fetch,
+) =>
+  send(
+    `/api/posts/${encodeURIComponent(id)}/revisions/${encodeURIComponent(revisionId)}/restore`,
+    { method: "POST", version },
     fetcher,
   );
 
@@ -153,13 +263,14 @@ export async function previewPost(
     });
     const body: unknown = await res.json().catch(() => null);
     if (res.ok && isPreviews(body)) return { ok: true, previews: body };
-    const { error } = record(body);
+    const { error, fields } = record(body);
     return {
       ok: false,
       error: typeof error === "string" ? error : GENERIC_ERROR,
+      fields: readFields(fields),
     };
   } catch {
-    return { ok: false, error: GENERIC_ERROR };
+    return { ok: false, error: GENERIC_ERROR, fields: {} };
   }
 }
 

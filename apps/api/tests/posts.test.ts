@@ -98,6 +98,23 @@ async function createPost(
   return ((await res.json()) as { post: { id: string } }).post;
 }
 
+/** An edit made on the post's current version. */
+async function edit(
+  a: ReturnType<typeof app>,
+  id: string,
+  overrides: Record<string, unknown>,
+  userId = "admin",
+) {
+  const current = await request(a, `/api/posts/${id}`, { cookie: as("admin") });
+  const { post } = (await current.json()) as { post: { version: number } };
+  return request(a, `/api/posts/${id}`, {
+    method: "PUT",
+    body: input(overrides),
+    cookie: as(userId),
+    headers: { "if-match": `"${post.version}"` },
+  });
+}
+
 const publish = (a: ReturnType<typeof app>, id: string, userId = "admin") =>
   request(a, `/api/posts/${id}/publish`, {
     method: "POST",
@@ -120,18 +137,29 @@ describe("/api/posts", () => {
     });
   });
 
-  it("rejects invalid input with field messages", async () => {
+  it("saves an incomplete draft and names what it needs to go live", async () => {
     const res = await request(app(), "/api/posts", {
       method: "POST",
       body: input({ title: "Short", slug: "about" }),
       cookie: as("admin"),
     });
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { fields: Record<string, string> };
-    expect(Object.keys(body.fields).sort()).toEqual(["slug", "title"]);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { issues: Record<string, string> };
+    expect(Object.keys(body.issues).sort()).toEqual(["slug", "title"]);
   });
 
-  it("rejects a slug another post uses", async () => {
+  it("rejects input with the wrong shape", async () => {
+    const res = await request(app(), "/api/posts", {
+      method: "POST",
+      body: input({ type: "poem" }),
+      cookie: as("admin"),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { fields: Record<string, string> };
+    expect(Object.keys(body.fields)).toEqual(["type"]);
+  });
+
+  it("saves a draft without a slug another post uses, and says so", async () => {
     const a = app();
     await createPost(a);
     const res = await request(a, "/api/posts", {
@@ -139,6 +167,33 @@ describe("/api/posts", () => {
       body: input(),
       cookie: as("editor"),
     });
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as {
+      post: { id: string; slug: string; title: string };
+      unsaved: Record<string, string>;
+    };
+    expect(created.post).toMatchObject({ slug: "", title: input().title });
+    expect(created.unsaved.slug).toMatch(/already uses this slug/);
+
+    // An edit keeps the slug it had, and saves the rest.
+    const second = await edit(a, created.post.id, { slug: "its-own-slug" });
+    const clash = await edit(a, created.post.id, {
+      slug: "written-in-the-admin",
+      title: "Edited while clashing",
+    });
+    expect(second.status).toBe(200);
+    expect(await clash.json()).toMatchObject({
+      post: { slug: "its-own-slug", title: "Edited while clashing" },
+      unsaved: { slug: expect.stringMatching(/already uses/) as unknown },
+    });
+  });
+
+  it("refuses a published post's edit that takes another post's position", async () => {
+    const a = app();
+    await createPost(a, "admin", { featured: 1 });
+    const { id } = await createPost(a, "admin", { slug: "a-live-post" });
+    await publish(a, id);
+    const res = await edit(a, id, { slug: "a-live-post", featured: 1 });
     expect(res.status).toBe(409);
   });
 
@@ -151,18 +206,20 @@ describe("/api/posts", () => {
     const { posts } = (await list.json()) as { posts: { id: string }[] };
     expect(posts.map((post) => post.id)).toEqual([id]);
 
-    const other = await request(a, `/api/posts/${id}`, {
-      method: "PUT",
-      body: input({ title: "Edited by someone else" }),
-      cookie: as("other-author"),
-    });
+    const other = await edit(
+      a,
+      id,
+      { title: "Edited by someone else" },
+      "other-author",
+    );
     expect(other.status).toBe(404);
 
-    const editor = await request(a, `/api/posts/${id}`, {
-      method: "PUT",
-      body: input({ title: "Edited by the editor" }),
-      cookie: as("editor"),
-    });
+    const editor = await edit(
+      a,
+      id,
+      { title: "Edited by the editor" },
+      "editor",
+    );
     expect(editor.status).toBe(200);
   });
 
@@ -188,12 +245,13 @@ describe("/api/posts", () => {
     expect(revalidate).toHaveBeenCalledTimes(1);
 
     clock = new Date("2026-10-23T09:00:00Z");
-    const edit = await request(a, `/api/posts/${id}`, {
-      method: "PUT",
-      body: input({ title: "Edited after publishing" }),
-      cookie: as("editor"),
-    });
-    expect(await edit.json()).toMatchObject({
+    const edited = await edit(
+      a,
+      id,
+      { title: "Edited after publishing" },
+      "editor",
+    );
+    expect(await edited.json()).toMatchObject({
       post: {
         publishedAt: "2026-10-22T09:00:00.000Z",
         updatedAt: "2026-10-23T09:00:00.000Z",
@@ -214,11 +272,7 @@ describe("/api/posts", () => {
     const a = app();
     const { id } = await createPost(a);
     await publish(a, id);
-    const res = await request(a, `/api/posts/${id}`, {
-      method: "PUT",
-      body: input({ slug: "a-new-slug" }),
-      cookie: as("admin"),
-    });
+    const res = await edit(a, id, { slug: "a-new-slug" });
     expect(res.status).toBe(409);
   });
 

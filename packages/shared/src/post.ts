@@ -24,25 +24,29 @@ import {
 // 'unsafe-eval') blocks it and reports a violation even though Zod recovers.
 z.config({ jitless: true });
 
-/** Any Tiptap JSON → the allowlisted Doc; unknown nodes, marks and attributes are dropped. */
-export const docSchema = z
+/**
+ * Any Tiptap JSON → the allowlisted Doc; unknown nodes, marks and attributes
+ * are dropped. Drafts are saved with this; `docSchema` adds the rules for going live.
+ */
+export const draftDocSchema = z
   .unknown()
   .transform(normaliseDoc)
   .refine(
     (doc) => countNodes(doc) <= MAX_NODES,
     "This post is too long to save. Split it into parts.",
-  )
-  .superRefine((doc, ctx) => {
-    const missing = docImages(doc).flatMap((image, index) =>
-      image.alt === "" ? [index + 1] : [],
-    );
-    if (missing.length > 0) {
-      ctx.addIssue({
-        code: "custom",
-        message: `Add alt text to image ${missing.join(", ")}: describe it for readers who can't see it.`,
-      });
-    }
-  });
+  );
+
+export const docSchema = draftDocSchema.superRefine((doc, ctx) => {
+  const missing = docImages(doc).flatMap((image, index) =>
+    image.alt === "" ? [index + 1] : [],
+  );
+  if (missing.length > 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Add alt text to image ${missing.join(", ")}: describe it for readers who can't see it.`,
+    });
+  }
+});
 
 /** An uploaded image with its alt text, e.g. the cover. */
 export const imageSchema = z.object({
@@ -147,6 +151,52 @@ export const postInputSchema = z
   });
 
 export type PostInput = z.infer<typeof postInputSchema>;
+
+/**
+ * What a draft may be saved with while it's being written: the same fields
+ * and shapes as `postInputSchema`, without the rules a writer meets mid-sentence
+ * (minimum lengths, slug and tag formats, alt text, date order). Images must
+ * still be uploads. Previews and publishing check `postInputSchema`.
+ */
+export const draftInputSchema = z.object({
+  title: z.string().trim().max(70, "Title can be at most 70 characters"),
+  summary: z.string().trim().max(160, "Summary can be at most 160 characters"),
+  slug: z.string().trim().max(100, "Slug can be at most 100 characters"),
+  body: draftDocSchema,
+  type: z.enum(ENTRY_TYPES, "Choose a type"),
+  tags: z
+    .array(z.string().trim().max(100, "Tags can be at most 100 characters"))
+    .max(20, `Use at most ${MAX_TAGS} tags`),
+  lang: z.enum(LANGS, "Choose a language"),
+  date: calendarDateSchema.optional(),
+  updated: calendarDateSchema.optional(),
+  featured: z
+    .number("Use a whole number")
+    .int("Use a whole number")
+    .min(1, "Featured positions start at 1")
+    .max(MAX_FEATURED, `Featured positions go up to ${MAX_FEATURED}`)
+    .optional(),
+  canonical: z
+    .string()
+    .trim()
+    .max(2000, "Canonical URL can be at most 2000 characters")
+    .optional(),
+  noindex: z.boolean(),
+  cover: imageSchema
+    .extend({
+      alt: z
+        .string()
+        .trim()
+        .max(
+          MAX_ALT_LENGTH,
+          `Alt text can be at most ${MAX_ALT_LENGTH} characters`,
+        ),
+    })
+    .optional(),
+});
+
+/** A post's editable fields as stored: a draft may not meet the publishing rules yet. */
+export type DraftInput = z.infer<typeof draftInputSchema>;
 
 /** Optional input fields: an edit that leaves one out clears it. */
 export const OPTIONAL_POST_FIELDS = [

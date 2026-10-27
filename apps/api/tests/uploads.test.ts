@@ -288,10 +288,13 @@ describe("images in posts", () => {
       body: body({ ...image, alt: "" }),
       cover: { ...image, alt: "  " },
     });
-    expect(res.status).toBe(400);
-    const fields = await fieldsOf(res);
-    expect(fields.body).toMatch(/Add alt text to image 1/);
-    expect(fields["cover.alt"]).toMatch(/Add alt text/);
+    // Saved as a draft, but named as what to fix before publishing.
+    expect(res.status).toBe(201);
+    const { issues } = (await res.json()) as {
+      issues: Record<string, string>;
+    };
+    expect(issues.body).toMatch(/Add alt text to image 1/);
+    expect(issues["cover.alt"]).toMatch(/Add alt text/);
   });
 
   it("refuses images that weren't uploaded here", async () => {

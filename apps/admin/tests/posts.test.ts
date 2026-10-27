@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createPost,
   listPosts,
+  listRevisions,
   publishPost,
+  restoreRevision,
   slugify,
   updatePost,
 } from "../src/posts";
@@ -22,6 +24,7 @@ const post = {
   authorId: "u1",
   updatedAt: "2026-10-22T09:00:00.000Z",
   publishedAt: null,
+  version: 3,
 };
 
 const input = {
@@ -59,7 +62,12 @@ describe("slugify", () => {
 describe("post requests", () => {
   it("creates with a JSON body", async () => {
     const fetcher = respond({ post }, 201);
-    expect(await createPost(input, fetcher)).toEqual({ ok: true, post });
+    expect(await createPost(input, {}, fetcher)).toEqual({
+      ok: true,
+      post,
+      issues: {},
+      unsaved: {},
+    });
     expect(fetcher).toHaveBeenCalledWith(
       "/api/posts",
       expect.objectContaining({
@@ -73,7 +81,9 @@ describe("post requests", () => {
   it("returns field errors from the server", async () => {
     const result = await updatePost(
       "p1",
+      3,
       input,
+      {},
       respond(
         {
           error: "Check the highlighted fields",
@@ -93,7 +103,13 @@ describe("post requests", () => {
     const published = { ...post, status: "published" };
     expect(
       await publishPost("p1", respond({ post: published, revalidated: false })),
-    ).toEqual({ ok: true, post: published, revalidated: false });
+    ).toEqual({
+      ok: true,
+      post: published,
+      issues: {},
+      unsaved: {},
+      revalidated: false,
+    });
   });
 
   it("reports a network failure plainly", async () => {
@@ -104,7 +120,88 @@ describe("post requests", () => {
       ok: false,
       error: "Couldn't reach the server. Check your connection.",
       fields: {},
+      retry: true,
     });
+  });
+
+  it("sends the version an edit was made on, and marks autosaves", async () => {
+    const fetcher = respond({ post, issues: { summary: "Too short" } });
+    expect(
+      await updatePost(
+        "p1",
+        3,
+        input,
+        { autosave: true, keepalive: true },
+        fetcher,
+      ),
+    ).toEqual({
+      ok: true,
+      post,
+      issues: { summary: "Too short" },
+      unsaved: {},
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/posts/p1?autosave=1",
+      expect.objectContaining({
+        method: "PUT",
+        keepalive: true,
+        headers: { "content-type": "application/json", "if-match": '"3"' },
+      }),
+    );
+  });
+
+  it("returns the current post when someone saved first", async () => {
+    const current = { ...post, title: "Saved in another tab", version: 4 };
+    const result = await updatePost(
+      "p1",
+      3,
+      input,
+      {},
+      respond({ error: "Saved somewhere else", post: current }, 412),
+    );
+    expect(result).toEqual({
+      ok: false,
+      error: "Saved somewhere else",
+      fields: {},
+      conflict: current,
+    });
+  });
+
+  it("restores a revision on top of the current version", async () => {
+    const fetcher = respond({
+      post,
+      issues: {},
+      unsaved: {},
+      revalidated: false,
+      restoredFrom: "2026-10-26T09:00:00.000Z",
+    });
+    expect(await restoreRevision("p1", "r1", 3, fetcher)).toMatchObject({
+      ok: true,
+      restoredFrom: "2026-10-26T09:00:00.000Z",
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/posts/p1/revisions/r1/restore",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "if-match": '"3"' },
+      }),
+    );
+  });
+
+  it("lists only well-formed revisions", async () => {
+    const revision = {
+      id: "r1",
+      version: 3,
+      kind: "autosave",
+      savedAt: "2026-10-26T09:00:00.000Z",
+      savedBy: "Ismail",
+      title: "A post",
+      words: 2,
+      excerpt: "Hello.",
+    };
+    expect(
+      await listRevisions("p1", respond({ revisions: [revision, { id: 2 }] })),
+    ).toEqual([revision]);
   });
 
   it("lists only well-formed posts", async () => {

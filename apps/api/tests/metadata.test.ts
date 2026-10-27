@@ -80,12 +80,17 @@ async function create(a: ReturnType<typeof app>, overrides = {}) {
   return { res, body: (await res.json()) as Json };
 }
 
-const put = (a: ReturnType<typeof app>, id: unknown, overrides = {}) =>
-  request(a, `/api/posts/${String(id)}`, {
+/** An edit made on the post's current version. */
+async function put(a: ReturnType<typeof app>, id: unknown, overrides = {}) {
+  const current = await request(a, `/api/posts/${String(id)}`, { cookie });
+  const { post } = (await current.json()) as Json;
+  return request(a, `/api/posts/${String(id)}`, {
     method: "PUT",
     body: input(overrides),
     cookie,
+    headers: { "if-match": `"${String(post.version)}"` },
   });
+}
 
 const publish = (a: ReturnType<typeof app>, id: unknown) =>
   request(a, `/api/posts/${String(id)}/publish`, { method: "POST", cookie });
@@ -126,8 +131,9 @@ describe("post metadata", () => {
       updated: "2026-10-01",
       canonical: "http://insecure.example",
     });
-    expect(res.status).toBe(400);
-    expect(Object.keys(body.fields as object).sort()).toEqual([
+    // A draft saves anyway; the messages say what to fix before publishing.
+    expect(res.status).toBe(201);
+    expect(Object.keys(body.issues as object).sort()).toEqual([
       "canonical",
       "tags.0",
       "updated",
@@ -141,9 +147,13 @@ describe("post metadata", () => {
       slug: "another-post",
       featured: 3,
     });
-    expect(res.status).toBe(409);
-    expect(body.fields).toEqual({
-      featured: "Another post already has this featured position",
+    // The draft saves without the taken position.
+    expect(res.status).toBe(201);
+    expect(body.post).not.toHaveProperty("featured");
+    expect(body.unsaved).toEqual({
+      featured: expect.stringMatching(
+        /^Another post already has this featured position/,
+      ) as unknown,
     });
     // Positions are free again once released.
     const { body: other } = await create(a, { slug: "third-post" });

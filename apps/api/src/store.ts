@@ -1,4 +1,4 @@
-import type { PostInput, PostStatus } from "@aiiman/shared";
+import type { DraftInput, PostStatus } from "@aiiman/shared";
 import { MongoServerError, type Collection, type Db } from "mongodb";
 
 export const ROLES = ["admin", "editor", "author"] as const;
@@ -28,8 +28,11 @@ export interface Session {
   expiresAt: Date;
 }
 
-/** A post: the fields a writer edits plus workflow state. Optional fields are absent when unset. */
-export type Post = PostInput & {
+/**
+ * A post: the fields a writer edits plus workflow state. Optional fields are
+ * absent when unset. A draft's fields may not meet the publishing rules yet.
+ */
+export type Post = DraftInput & {
   id: string;
   status: PostStatus;
   authorId: string;
@@ -37,10 +40,31 @@ export type Post = PostInput & {
   updatedAt: Date;
   /** First publication time; kept when a published post is edited. */
   publishedAt: Date | null;
+  /** Goes up by one on every write, so an edit made on an older version is refused. */
+  version: number;
 };
 
-export type PostChanges = Partial<Omit<Post, "id" | "authorId" | "createdAt">> &
+export type PostChanges = Partial<
+  Omit<Post, "id" | "authorId" | "createdAt" | "version">
+> &
   Pick<Post, "updatedAt">;
+
+export const REVISION_KINDS = ["autosave", "save", "restore"] as const;
+export type RevisionKind = (typeof REVISION_KINDS)[number];
+
+/** A saved version of a post's editable fields. */
+export interface Revision {
+  id: string;
+  postId: string;
+  /** The post version these fields were saved as. */
+  version: number;
+  kind: RevisionKind;
+  content: DraftInput;
+  savedBy: string;
+  /** When this revision was first saved; autosaves fold into it for a while. */
+  createdAt: Date;
+  savedAt: Date;
+}
 
 /** An image the API stored in Blob, with the measurements posts must match. */
 export interface Upload {
@@ -76,13 +100,16 @@ export interface Stores {
     /** Throws DuplicateFieldError when the slug or featured position is in use. */
     insert(post: Post): Promise<void>;
     /**
-     * Sets `changes` and removes the `unset` fields. Throws DuplicateFieldError
-     * like insert; null when the post is gone.
+     * Sets `changes`, removes the `unset` fields and bumps the version. With
+     * `expectedVersion`, only writes if the post is still at that version.
+     * Throws DuplicateFieldError like insert; null when the post is gone or
+     * has moved on.
      */
     update(
       id: string,
       changes: PostChanges,
       unset?: readonly string[],
+      expectedVersion?: number,
     ): Promise<Post | null>;
     /** Published posts only, newest first. */
     listPublished(): Promise<Post[]>;
@@ -96,6 +123,14 @@ export interface Stores {
     insert(upload: Upload): Promise<void>;
     findByUrls(urls: readonly string[]): Promise<Upload[]>;
   };
+  revisions: {
+    /** A post's revisions, newest first. */
+    list(postId: string): Promise<Revision[]>;
+    find(postId: string, id: string): Promise<Revision | null>;
+    /** Adds a revision and deletes the post's revisions past the newest `keep`. */
+    insert(revision: Revision, keep: number): Promise<void>;
+    replace(revision: Revision): Promise<void>;
+  };
   sessions: {
     insert(session: Session): Promise<void>;
     findValid(tokenHash: string, now: Date): Promise<Session | null>;
@@ -107,6 +142,7 @@ type UserDoc = Omit<User, "id"> & { _id: string };
 type SessionDoc = Omit<Session, "tokenHash"> & { _id: string };
 type PostDoc = Omit<Post, "id"> & { _id: string };
 type UploadDoc = Omit<Upload, "url"> & { _id: string };
+type RevisionDoc = Omit<Revision, "id"> & { _id: string };
 interface PageDoc {
   _id: string;
   status: PostStatus;
@@ -117,6 +153,10 @@ function fromUserDoc({ _id, ...rest }: UserDoc): User {
 }
 
 function fromPostDoc({ _id, ...rest }: PostDoc): Post {
+  return { id: _id, ...rest };
+}
+
+function fromRevisionDoc({ _id, ...rest }: RevisionDoc): Revision {
   return { id: _id, ...rest };
 }
 
@@ -155,13 +195,18 @@ export function createMongoStores(db: Db): Stores {
   const posts: Collection<PostDoc> = db.collection("posts");
   const pages: Collection<PageDoc> = db.collection("pages");
   const uploads: Collection<UploadDoc> = db.collection("uploads");
+  const revisions: Collection<RevisionDoc> = db.collection("revisions");
 
   // Once per instance. The TTL index lets MongoDB delete expired sessions itself.
   indexesReady ??= Promise.all([
     users.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     sessions.createIndex({ userId: 1 }),
-    posts.createIndex({ slug: 1 }, { unique: true }),
+    // Drafts autosave before they have a title, so many may have no slug yet.
+    posts.createIndex(
+      { slug: 1 },
+      { unique: true, partialFilterExpression: { slug: { $gt: "" } } },
+    ),
     // Featured positions are unique across posts, drafts included (as in the MDX build).
     posts.createIndex(
       { featured: 1 },
@@ -171,6 +216,7 @@ export function createMongoStores(db: Db): Stores {
       },
     ),
     posts.createIndex({ status: 1, date: -1 }),
+    revisions.createIndex({ postId: 1, createdAt: -1, version: -1 }),
   ]);
 
   return {
@@ -210,13 +256,16 @@ export function createMongoStores(db: Db): Stores {
         await indexesReady;
         await uniqueSafe(() => posts.insertOne(defined({ _id: id, ...rest })));
       },
-      async update(id, changes, unset = []) {
+      async update(id, changes, unset = [], expectedVersion) {
         await indexesReady;
         const doc = await uniqueSafe(() =>
           posts.findOneAndUpdate(
-            { _id: id },
+            expectedVersion === undefined
+              ? { _id: id }
+              : { _id: id, version: expectedVersion },
             {
               $set: defined(changes),
+              $inc: { version: 1 },
               ...(unset.length === 0
                 ? {}
                 : {
@@ -254,6 +303,36 @@ export function createMongoStores(db: Db): Stores {
       async findByUrls(urls) {
         const docs = await uploads.find({ _id: { $in: [...urls] } }).toArray();
         return docs.map(({ _id, ...rest }) => ({ url: _id, ...rest }));
+      },
+    },
+    revisions: {
+      async list(postId) {
+        const docs = await revisions
+          .find({ postId })
+          .sort({ createdAt: -1, version: -1 })
+          .toArray();
+        return docs.map(fromRevisionDoc);
+      },
+      async find(postId, id) {
+        const doc = await revisions.findOne({ _id: id, postId });
+        return doc === null ? null : fromRevisionDoc(doc);
+      },
+      async insert({ id, ...rest }, keep) {
+        await indexesReady;
+        await revisions.insertOne({ _id: id, ...rest });
+        const old = await revisions
+          .find({ postId: rest.postId }, { projection: { _id: 1 } })
+          .sort({ createdAt: -1, version: -1 })
+          .skip(keep)
+          .toArray();
+        if (old.length > 0) {
+          await revisions.deleteMany({
+            _id: { $in: old.map((doc) => doc._id) },
+          });
+        }
+      },
+      async replace({ id, ...rest }) {
+        await revisions.replaceOne({ _id: id }, rest);
       },
     },
     sessions: {
