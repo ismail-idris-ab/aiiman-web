@@ -464,6 +464,17 @@ describe("changing your own password", () => {
     );
   });
 
+  it("cancels a pending reset link", async () => {
+    const a = app();
+    const res = await request(a, "/api/users/author/password-link", {
+      method: "POST",
+      cookie: as("admin"),
+    });
+    const { link } = (await res.json()) as { link: Link };
+    expect((await change(a, PASSWORD)).status).toBe(204);
+    expect((await checkLink(a, link.token)).status).toBe(404);
+  });
+
   it("refuses a short new password", async () => {
     const res = await change(app(), PASSWORD, "short");
     expect(res.status).toBe(400);

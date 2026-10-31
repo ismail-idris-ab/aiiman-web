@@ -308,6 +308,8 @@ export function authRouter(deps: AuthDeps): Router {
       user.id,
       token === undefined ? undefined : hashToken(token),
     );
+    // A reset link made before the change would otherwise still undo it.
+    await stores.passwordLinks.deleteByUser(user.id);
     log("auth.password_changed", { userId: user.id });
     res.status(204).end();
   };
