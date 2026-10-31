@@ -1,24 +1,48 @@
-import type { DraftInput, PostStatus } from "@aiiman/shared";
+import type {
+  DraftInput,
+  Photo,
+  PostStatus,
+  Role,
+  UserStatus,
+} from "@aiiman/shared";
 import { MongoServerError, type Collection, type Db } from "mongodb";
-
-export const ROLES = ["admin", "editor", "author"] as const;
-export type Role = (typeof ROLES)[number];
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: Role;
-  status: "active" | "deactivated";
-  passwordHash: string;
+  status: UserStatus;
+  /** Null until the user opens their setup link and chooses a password. */
+  passwordHash: string | null;
+  bio?: string;
+  photo?: Photo;
   createdAt: Date;
 }
 
-/** What the API ever sends about a user: never the hash. */
-export type PublicUser = Pick<User, "id" | "email" | "name" | "role">;
+export type UserChanges = Partial<
+  Pick<User, "name" | "role" | "status" | "passwordHash" | "bio" | "photo">
+>;
 
-export function toPublicUser({ id, email, name, role }: User): PublicUser {
-  return { id, email, name, role };
+/** What the API ever sends about a user: never the hash. */
+export type PublicUser = Omit<User, "passwordHash"> & {
+  /** False while the setup link hasn't been used. */
+  passwordSet: boolean;
+};
+
+export function toPublicUser({ passwordHash, ...user }: User): PublicUser {
+  return { ...user, passwordSet: passwordHash !== null };
+}
+
+export type PasswordLinkKind = "setup" | "reset";
+
+/** A one-time link that lets a user choose a password. Only its hash is stored. */
+export interface PasswordLink {
+  tokenHash: string;
+  userId: string;
+  kind: PasswordLinkKind;
+  createdAt: Date;
+  expiresAt: Date;
 }
 
 export interface Session {
@@ -91,7 +115,24 @@ export interface Stores {
     findByEmail(email: string): Promise<User | null>;
     findById(id: string): Promise<User | null>;
     findByIds(ids: readonly string[]): Promise<User[]>;
+    /** Everyone, oldest first. */
+    list(): Promise<User[]>;
+    /** Throws DuplicateEmailError when the email is taken. */
     insert(user: User): Promise<void>;
+    /** Sets `changes` and removes the `unset` fields; null when the user is gone. */
+    update(
+      id: string,
+      changes: UserChanges,
+      unset?: readonly ("bio" | "photo")[],
+    ): Promise<User | null>;
+  };
+  passwordLinks: {
+    insert(link: PasswordLink): Promise<void>;
+    /** The link if it exists and hasn't expired. */
+    find(tokenHash: string, now: Date): Promise<PasswordLink | null>;
+    /** Like find, but deletes it in the same step so it works only once. */
+    consume(tokenHash: string, now: Date): Promise<PasswordLink | null>;
+    deleteByUser(userId: string): Promise<void>;
   };
   posts: {
     /** Every post, most recently updated first. */
@@ -135,11 +176,14 @@ export interface Stores {
     insert(session: Session): Promise<void>;
     findValid(tokenHash: string, now: Date): Promise<Session | null>;
     delete(tokenHash: string): Promise<void>;
+    /** Ends every session of a user, except `keep` (the one making the change). */
+    deleteByUser(userId: string, keep?: string): Promise<void>;
   };
 }
 
 type UserDoc = Omit<User, "id"> & { _id: string };
 type SessionDoc = Omit<Session, "tokenHash"> & { _id: string };
+type PasswordLinkDoc = Omit<PasswordLink, "tokenHash"> & { _id: string };
 type PostDoc = Omit<Post, "id"> & { _id: string };
 type UploadDoc = Omit<Upload, "url"> & { _id: string };
 type RevisionDoc = Omit<Revision, "id"> & { _id: string };
@@ -150,6 +194,10 @@ interface PageDoc {
 
 function fromUserDoc({ _id, ...rest }: UserDoc): User {
   return { id: _id, ...rest };
+}
+
+function fromLinkDoc({ _id, ...rest }: PasswordLinkDoc): PasswordLink {
+  return { tokenHash: _id, ...rest };
 }
 
 function fromPostDoc({ _id, ...rest }: PostDoc): Post {
@@ -176,6 +224,11 @@ async function uniqueSafe<T>(write: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Another user already has this email. */
+export class DuplicateEmailError extends Error {
+  override name = "DuplicateEmailError";
+}
+
 /** The driver stores `undefined` as null; absent fields must stay absent. */
 function defined<T extends object>(value: T): T {
   return Object.fromEntries(
@@ -196,12 +249,16 @@ export function createMongoStores(db: Db): Stores {
   const pages: Collection<PageDoc> = db.collection("pages");
   const uploads: Collection<UploadDoc> = db.collection("uploads");
   const revisions: Collection<RevisionDoc> = db.collection("revisions");
+  const passwordLinks: Collection<PasswordLinkDoc> =
+    db.collection("passwordLinks");
 
   // Once per instance. The TTL index lets MongoDB delete expired sessions itself.
   indexesReady ??= Promise.all([
     users.createIndex({ email: 1 }, { unique: true }),
     sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     sessions.createIndex({ userId: 1 }),
+    passwordLinks.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    passwordLinks.createIndex({ userId: 1 }),
     // Drafts autosave before they have a title, so many may have no slug yet.
     posts.createIndex(
       { slug: 1 },
@@ -234,13 +291,58 @@ export function createMongoStores(db: Db): Stores {
         const docs = await users.find({ _id: { $in: [...ids] } }).toArray();
         return docs.map(fromUserDoc);
       },
+      async list() {
+        const docs = await users.find().sort({ createdAt: 1 }).toArray();
+        return docs.map(fromUserDoc);
+      },
       async insert({ id, ...rest }) {
         await indexesReady;
-        await users.insertOne({
-          _id: id,
-          ...rest,
-          email: normaliseEmail(rest.email),
+        try {
+          await users.insertOne(
+            defined({ _id: id, ...rest, email: normaliseEmail(rest.email) }),
+          );
+        } catch (error) {
+          if (error instanceof MongoServerError && error.code === DUPLICATE_KEY)
+            throw new DuplicateEmailError("duplicate email");
+          throw error;
+        }
+      },
+      async update(id, changes, unset = []) {
+        const doc = await users.findOneAndUpdate(
+          { _id: id },
+          {
+            $set: defined(changes),
+            ...(unset.length === 0
+              ? {}
+              : { $unset: Object.fromEntries(unset.map((key) => [key, ""])) }),
+          },
+          { returnDocument: "after" },
+        );
+        return doc === null ? null : fromUserDoc(doc);
+      },
+    },
+    passwordLinks: {
+      async insert({ tokenHash, ...rest }) {
+        await indexesReady;
+        await passwordLinks.insertOne({ _id: tokenHash, ...rest });
+      },
+      async find(tokenHash, now) {
+        // The TTL monitor runs about once a minute, so check expiry here too.
+        const doc = await passwordLinks.findOne({
+          _id: tokenHash,
+          expiresAt: { $gt: now },
         });
+        return doc === null ? null : fromLinkDoc(doc);
+      },
+      async consume(tokenHash, now) {
+        const doc = await passwordLinks.findOneAndDelete({
+          _id: tokenHash,
+          expiresAt: { $gt: now },
+        });
+        return doc === null ? null : fromLinkDoc(doc);
+      },
+      async deleteByUser(userId) {
+        await passwordLinks.deleteMany({ userId });
       },
     },
     posts: {
@@ -350,6 +452,11 @@ export function createMongoStores(db: Db): Stores {
       },
       async delete(tokenHash) {
         await sessions.deleteOne({ _id: tokenHash });
+      },
+      async deleteByUser(userId, keep) {
+        await sessions.deleteMany(
+          keep === undefined ? { userId } : { userId, _id: { $ne: keep } },
+        );
       },
     },
   };

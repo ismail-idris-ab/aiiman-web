@@ -1,10 +1,9 @@
 import { hash, verify } from "@node-rs/argon2";
 
+export { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@aiiman/shared";
+
 // argon2id (the library default) with OWASP's minimum: 19 MiB, 2 passes, 1 lane.
 const OPTIONS = { memoryCost: 19456, timeCost: 2, parallelism: 1 };
-
-export const MIN_PASSWORD_LENGTH = 12;
-export const MAX_PASSWORD_LENGTH = 200;
 
 export function hashPassword(password: string): Promise<string> {
   return hash(password, OPTIONS);

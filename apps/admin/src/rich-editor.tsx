@@ -147,17 +147,21 @@ export function RichEditor({
   value,
   onChange,
   describedBy,
+  readOnly = false,
 }: {
   id: string;
   value: Doc;
   onChange: (doc: Doc) => void;
   describedBy?: string | undefined;
+  /** Shows the document without letting it change, and without the toolbar. */
+  readOnly?: boolean;
 }) {
   // The last document the editor emitted, to tell typing from a new value.
   const emitted = useRef(value);
   const editor = useEditor({
     extensions,
     content: value,
+    editable: !readOnly,
     // The admin's CSP has no 'unsafe-inline' styles; editor styles live in styles.css.
     injectCSS: false,
     editorProps: {
@@ -188,6 +192,11 @@ export function RichEditor({
     editor.commands.setContent(value, { emitUpdate: false });
   }, [editor, value]);
 
+  // A post can turn read-only once it loads (an author viewing a live post).
+  useEffect(() => {
+    editor?.setEditable(!readOnly, false);
+  }, [editor, readOnly]);
+
   // The insert panel that is open, if any.
   const [panel, setPanel] = useState<"image" | "embed" | null>(null);
   const toggle = (name: "image" | "embed") =>
@@ -216,98 +225,104 @@ export function RichEditor({
 
   return (
     <div className="rich-editor">
-      <div className="toolbar" role="toolbar" aria-label="Formatting">
-        {TOOLS.map((tool, index) => (
-          <button
-            key={tool.label}
-            type="button"
-            aria-label={tool.label}
-            title={tool.label}
-            aria-pressed={state?.active[index] ?? false}
-            onClick={() => tool.run(editor)}
-          >
-            {tool.text}
-          </button>
-        ))}
-        {state?.inCallout ? (
-          <button type="button" onClick={() => askCalloutTitle(editor)}>
-            Callout title
-          </button>
-        ) : null}
-        <button
-          type="button"
-          aria-expanded={panel === "image"}
-          aria-controls={`${id}-panel`}
-          onClick={() => toggle("image")}
-        >
-          Image
-        </button>
-        <button
-          type="button"
-          aria-expanded={panel === "embed"}
-          aria-controls={`${id}-panel`}
-          onClick={() => toggle("embed")}
-        >
-          Embed
-        </button>
-        {state?.codeLanguage == null ? null : (
-          <select
-            aria-label="Code language"
-            value={state.codeLanguage}
-            onChange={(event) =>
-              editor
-                .chain()
-                .focus()
-                .updateAttributes("codeBlock", { language: event.target.value })
-                .run()
-            }
-          >
-            {Object.entries(CODE_LANGUAGES).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
+      {readOnly ? null : (
+        <>
+          <div className="toolbar" role="toolbar" aria-label="Formatting">
+            {TOOLS.map((tool, index) => (
+              <button
+                key={tool.label}
+                type="button"
+                aria-label={tool.label}
+                title={tool.label}
+                aria-pressed={state?.active[index] ?? false}
+                onClick={() => tool.run(editor)}
+              >
+                {tool.text}
+              </button>
             ))}
-          </select>
-        )}
-        {state?.imageAlt == null ? null : (
-          <span className="toolbar-field">
-            <label htmlFor={`${id}-image-alt`}>Alt text</label>
-            <input
-              id={`${id}-image-alt`}
-              value={state.imageAlt}
-              aria-invalid={state.imageAlt.trim() === "" ? true : undefined}
-              // Typing here keeps the image selected; focus stays in the field.
-              onChange={(event) =>
-                editor.commands.setImageAlt(event.target.value)
-              }
-            />
-          </span>
-        )}
-      </div>
-      {panel === null ? null : (
-        <div id={`${id}-panel`}>
-          {panel === "image" ? (
-            <ImagePicker
-              id={`${id}-image-picker`}
-              title="Insert an image"
-              submitLabel="Upload and insert"
-              onPicked={(image) => {
-                editor.chain().focus().insertImage(image).run();
-                setPanel(null);
-              }}
-              onCancel={() => setPanel(null)}
-            />
-          ) : (
-            <EmbedPicker
-              id={`${id}-embed-picker`}
-              onPicked={(embed) => {
-                editor.chain().focus().insertEmbed(embed).run();
-                setPanel(null);
-              }}
-              onCancel={() => setPanel(null)}
-            />
+            {state?.inCallout ? (
+              <button type="button" onClick={() => askCalloutTitle(editor)}>
+                Callout title
+              </button>
+            ) : null}
+            <button
+              type="button"
+              aria-expanded={panel === "image"}
+              aria-controls={`${id}-panel`}
+              onClick={() => toggle("image")}
+            >
+              Image
+            </button>
+            <button
+              type="button"
+              aria-expanded={panel === "embed"}
+              aria-controls={`${id}-panel`}
+              onClick={() => toggle("embed")}
+            >
+              Embed
+            </button>
+            {state?.codeLanguage == null ? null : (
+              <select
+                aria-label="Code language"
+                value={state.codeLanguage}
+                onChange={(event) =>
+                  editor
+                    .chain()
+                    .focus()
+                    .updateAttributes("codeBlock", {
+                      language: event.target.value,
+                    })
+                    .run()
+                }
+              >
+                {Object.entries(CODE_LANGUAGES).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
+            {state?.imageAlt == null ? null : (
+              <span className="toolbar-field">
+                <label htmlFor={`${id}-image-alt`}>Alt text</label>
+                <input
+                  id={`${id}-image-alt`}
+                  value={state.imageAlt}
+                  aria-invalid={state.imageAlt.trim() === "" ? true : undefined}
+                  // Typing here keeps the image selected; focus stays in the field.
+                  onChange={(event) =>
+                    editor.commands.setImageAlt(event.target.value)
+                  }
+                />
+              </span>
+            )}
+          </div>
+          {panel === null ? null : (
+            <div id={`${id}-panel`}>
+              {panel === "image" ? (
+                <ImagePicker
+                  id={`${id}-image-picker`}
+                  title="Insert an image"
+                  submitLabel="Upload and insert"
+                  onPicked={(image) => {
+                    editor.chain().focus().insertImage(image).run();
+                    setPanel(null);
+                  }}
+                  onCancel={() => setPanel(null)}
+                />
+              ) : (
+                <EmbedPicker
+                  id={`${id}-embed-picker`}
+                  onPicked={(embed) => {
+                    editor.chain().focus().insertEmbed(embed).run();
+                    setPanel(null);
+                  }}
+                  onCancel={() => setPanel(null)}
+                />
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
       <EditorContent editor={editor} />
     </div>

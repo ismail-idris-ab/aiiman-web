@@ -1,4 +1,5 @@
 import {
+  can,
   ENTRY_TYPES,
   LANG_LABELS,
   LANGS,
@@ -203,10 +204,21 @@ export function PostEditor({
     };
   }, []);
 
-  const canPublish = user.role === "admin" || user.role === "editor";
+  const canPublish = can(user, "post.publish");
+  const canFeature = can(user, "post.feature");
+  const canIndex = can(user, "post.indexing");
   const published = post?.status === "published";
+  // An author's post becomes the editors' once it's live.
+  const editable =
+    post === null ||
+    can(user, "post.edit", {
+      kind: "post",
+      authorId: post.authorId,
+      status: post.status,
+    });
 
   function update<K extends keyof Fields>(name: K, value: Fields[K]) {
+    if (!editable) return;
     setPreviews(null);
     const current = fieldsRef.current;
     replaceFields({
@@ -436,7 +448,7 @@ export function PostEditor({
       <h2 id="editor-heading">
         {post === null ? "New post" : published ? "Published post" : "Draft"}
       </h2>
-      <AutosaveNote status={status} published={published} />
+      {editable && <AutosaveNote status={status} published={published} />}
       {conflict === null ? null : (
         <div role="alert" className="conflict">
           <p>
@@ -460,253 +472,275 @@ export function PostEditor({
           </p>
         </div>
       )}
+      {editable ? null : (
+        <p role="status">
+          This post is live, so editors make changes to it. Ask one if something
+          needs fixing.
+        </p>
+      )}
       <form onSubmit={handleSave} noValidate>
-        <fieldset>
-          <legend>Post</legend>
-          {row(
-            "title",
-            "Title",
-            <input
-              {...text("title")}
-              {...described("title", true)}
-              required
-              maxLength={70}
-            />,
-            titleHint,
-          )}
-          {row(
-            "summary",
-            "Summary",
-            <textarea
-              {...text("summary")}
-              {...described("summary", true)}
-              required
-              maxLength={160}
-              rows={3}
-            />,
-            `${fields.summary.length}/160. Shown in search results and share previews.`,
-          )}
-          <div>
-            {/* A contenteditable can't be the target of <label for>; it is named by aria-labelledby. */}
-            <span id="body-label">Body</span>
-            <RichEditor
-              id="body"
-              value={fields.body}
-              onChange={(body) => update("body", body)}
-              describedBy={described("body", true)["aria-describedby"]}
-            />
-            <small id="body-hint">
-              Headings start at H2: the title above is the page&apos;s main
-              heading.
-            </small>
-            {errorFor("body") === undefined ? null : (
-              <p>
-                <span id="body-error">{errorFor("body")}</span>
-              </p>
+        {/* Disabling this one fieldset disables every field inside it. */}
+        <fieldset className="editor-lock" disabled={!editable}>
+          <fieldset>
+            <legend>Post</legend>
+            {row(
+              "title",
+              "Title",
+              <input
+                {...text("title")}
+                {...described("title", true)}
+                required
+                maxLength={70}
+              />,
+              titleHint,
             )}
-          </div>
-        </fieldset>
-
-        <fieldset>
-          <legend>Details</legend>
-          {row(
-            "slug",
-            "Slug",
-            <input
-              {...text("slug")}
-              {...described("slug", true)}
-              onChange={(event) => {
-                setSlugTouched(true);
-                update("slug", event.target.value);
-              }}
-              readOnly={published}
-              required
-            />,
-            published
-              ? `The post lives at /${fields.slug}. Published posts keep their slug.`
-              : `The post will live at /${fields.slug || "…"}`,
-          )}
-          {row(
-            "type",
-            "Type",
-            <select
-              id="type"
-              name="type"
-              value={fields.type}
-              onChange={(event) =>
-                update("type", event.target.value as EntryType)
-              }
-              {...described("type")}
-            >
-              {ENTRY_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>,
-          )}
-          {row(
-            "tags",
-            "Tags",
-            <input {...text("tags")} {...described("tags", true)} />,
-            `1 to ${MAX_TAGS}, separated by commas, e.g. react-native, nigeria`,
-          )}
-          {row(
-            "lang",
-            "Language",
-            <select
-              id="lang"
-              name="lang"
-              value={fields.lang}
-              onChange={(event) => update("lang", event.target.value as Lang)}
-              {...described("lang")}
-            >
-              {LANGS.map((lang) => (
-                <option key={lang} value={lang}>
-                  {LANG_LABELS[lang]}
-                </option>
-              ))}
-            </select>,
-          )}
-          {row(
-            "date",
-            "Publication date",
-            <input
-              type="date"
-              {...text("date")}
-              {...described("date", true)}
-            />,
-            "Leave empty to use the day you publish.",
-          )}
-          {row(
-            "updated",
-            "Updated date",
-            <input
-              type="date"
-              {...text("updated")}
-              {...described("updated", true)}
-            />,
-            "Optional. Set it when you change a published post meaningfully.",
-          )}
-          {row(
-            "featured",
-            "Featured position",
-            <input
-              type="number"
-              min={1}
-              max={MAX_FEATURED}
-              step={1}
-              {...text("featured")}
-              {...described("featured", true)}
-            />,
-            `Optional. 1 to ${MAX_FEATURED}: its place in "Start here" on the home page.`,
-          )}
-        </fieldset>
-
-        <fieldset>
-          <legend>Cover image</legend>
-          {fields.cover === null ? (
-            <>
-              <ImagePicker
-                id="cover-picker"
-                title="Shown under the post title"
-                submitLabel="Upload cover"
-                onPicked={(cover) => update("cover", cover)}
+            {row(
+              "summary",
+              "Summary",
+              <textarea
+                {...text("summary")}
+                {...described("summary", true)}
+                required
+                maxLength={160}
+                rows={3}
+              />,
+              `${fields.summary.length}/160. Shown in search results and share previews.`,
+            )}
+            <div>
+              {/* A contenteditable can't be the target of <label for>; it is named by aria-labelledby. */}
+              <span id="body-label">Body</span>
+              <RichEditor
+                id="body"
+                value={fields.body}
+                onChange={(body) => update("body", body)}
+                readOnly={!editable}
+                describedBy={described("body", true)["aria-describedby"]}
               />
-              {errorFor("cover") === undefined ? null : (
-                <p id="cover-error">{errorFor("cover")}</p>
+              <small id="body-hint">
+                Headings start at H2: the title above is the page&apos;s main
+                heading.
+              </small>
+              {errorFor("body") === undefined ? null : (
+                <p>
+                  <span id="body-error">{errorFor("body")}</span>
+                </p>
               )}
-            </>
-          ) : (
-            <>
-              {/* Decorative here: its description is the field below. */}
-              <img
-                className="cover-preview"
-                src={fields.cover.src}
-                width={fields.cover.width}
-                height={fields.cover.height}
-                alt=""
-              />
-              {row(
-                "cover-alt",
-                "Cover alt text",
-                <textarea
-                  id="cover-alt"
-                  rows={2}
-                  value={fields.cover.alt}
-                  onChange={(event) =>
-                    fields.cover !== null &&
-                    update("cover", {
-                      ...fields.cover,
-                      alt: event.target.value,
-                    })
-                  }
-                  aria-invalid={coverAltError === undefined ? undefined : true}
-                  aria-describedby={
-                    coverAltError === undefined
-                      ? "cover-alt-hint"
-                      : "cover-alt-hint cover-alt-error"
-                  }
-                  required
-                />,
-                'What the image shows, e.g. "Kano city walls at dusk".',
-              )}
-              {errorFor("cover") === undefined ? null : (
-                <p id="cover-error">{errorFor("cover")}</p>
-              )}
-              <p>
-                <button type="button" onClick={() => update("cover", null)}>
-                  Remove cover
-                </button>
-              </p>
-            </>
-          )}
-        </fieldset>
+            </div>
+          </fieldset>
 
-        <fieldset>
-          <legend>Search engines</legend>
-          {row(
-            "canonical",
-            "Canonical URL",
-            <input
-              type="url"
-              {...text("canonical")}
-              {...described("canonical", true)}
-            />,
-            "Only if this post first appeared elsewhere: the original https:// address.",
-          )}
-          <p>
-            <input
-              type="checkbox"
-              id="noindex"
-              name="noindex"
-              checked={fields.noindex}
-              onChange={(event) => update("noindex", event.target.checked)}
-              aria-describedby="noindex-hint"
-            />{" "}
-            <label htmlFor="noindex">Hide from search engines</label>
-            <br />
-            <small id="noindex-hint">
-              Readers can still open the post; it stays out of search results
-              and the sitemap.
-            </small>
-          </p>
+          <fieldset>
+            <legend>Details</legend>
+            {row(
+              "slug",
+              "Slug",
+              <input
+                {...text("slug")}
+                {...described("slug", true)}
+                onChange={(event) => {
+                  setSlugTouched(true);
+                  update("slug", event.target.value);
+                }}
+                readOnly={published}
+                required
+              />,
+              published
+                ? `The post lives at /${fields.slug}. Published posts keep their slug.`
+                : `The post will live at /${fields.slug || "…"}`,
+            )}
+            {row(
+              "type",
+              "Type",
+              <select
+                id="type"
+                name="type"
+                value={fields.type}
+                onChange={(event) =>
+                  update("type", event.target.value as EntryType)
+                }
+                {...described("type")}
+              >
+                {ENTRY_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {row(
+              "tags",
+              "Tags",
+              <input {...text("tags")} {...described("tags", true)} />,
+              `1 to ${MAX_TAGS}, separated by commas, e.g. react-native, nigeria`,
+            )}
+            {row(
+              "lang",
+              "Language",
+              <select
+                id="lang"
+                name="lang"
+                value={fields.lang}
+                onChange={(event) => update("lang", event.target.value as Lang)}
+                {...described("lang")}
+              >
+                {LANGS.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {LANG_LABELS[lang]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {row(
+              "date",
+              "Publication date",
+              <input
+                type="date"
+                {...text("date")}
+                {...described("date", true)}
+              />,
+              "Leave empty to use the day you publish.",
+            )}
+            {row(
+              "updated",
+              "Updated date",
+              <input
+                type="date"
+                {...text("updated")}
+                {...described("updated", true)}
+              />,
+              "Optional. Set it when you change a published post meaningfully.",
+            )}
+            {row(
+              "featured",
+              "Featured position",
+              <input
+                type="number"
+                min={1}
+                max={MAX_FEATURED}
+                step={1}
+                {...text("featured")}
+                {...described("featured", true)}
+                disabled={!canFeature}
+              />,
+              `${canFeature ? "Optional" : "Set by editors"}. 1 to ${MAX_FEATURED}: its place in "Start here" on the home page.`,
+            )}
+          </fieldset>
+
+          <fieldset>
+            <legend>Cover image</legend>
+            {fields.cover === null ? (
+              <>
+                <ImagePicker
+                  id="cover-picker"
+                  title="Shown under the post title"
+                  submitLabel="Upload cover"
+                  onPicked={(cover) => update("cover", cover)}
+                />
+                {errorFor("cover") === undefined ? null : (
+                  <p id="cover-error">{errorFor("cover")}</p>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Decorative here: its description is the field below. */}
+                <img
+                  className="cover-preview"
+                  src={fields.cover.src}
+                  width={fields.cover.width}
+                  height={fields.cover.height}
+                  alt=""
+                />
+                {row(
+                  "cover-alt",
+                  "Cover alt text",
+                  <textarea
+                    id="cover-alt"
+                    rows={2}
+                    value={fields.cover.alt}
+                    onChange={(event) =>
+                      fields.cover !== null &&
+                      update("cover", {
+                        ...fields.cover,
+                        alt: event.target.value,
+                      })
+                    }
+                    aria-invalid={
+                      coverAltError === undefined ? undefined : true
+                    }
+                    aria-describedby={
+                      coverAltError === undefined
+                        ? "cover-alt-hint"
+                        : "cover-alt-hint cover-alt-error"
+                    }
+                    required
+                  />,
+                  'What the image shows, e.g. "Kano city walls at dusk".',
+                )}
+                {errorFor("cover") === undefined ? null : (
+                  <p id="cover-error">{errorFor("cover")}</p>
+                )}
+                <p>
+                  <button type="button" onClick={() => update("cover", null)}>
+                    Remove cover
+                  </button>
+                </p>
+              </>
+            )}
+          </fieldset>
+
+          <fieldset disabled={!canIndex} aria-describedby="indexing-hint">
+            <legend>Search engines</legend>
+            <p>
+              <small id="indexing-hint">
+                {canIndex
+                  ? "Leave these alone unless the post needs them."
+                  : "Set by editors."}
+              </small>
+            </p>
+            {row(
+              "canonical",
+              "Canonical URL",
+              <input
+                type="url"
+                {...text("canonical")}
+                {...described("canonical", true)}
+              />,
+              "Only if this post first appeared elsewhere: the original https:// address.",
+            )}
+            <p>
+              <input
+                type="checkbox"
+                id="noindex"
+                name="noindex"
+                checked={fields.noindex}
+                onChange={(event) => update("noindex", event.target.checked)}
+                aria-describedby="noindex-hint"
+              />{" "}
+              <label htmlFor="noindex">Hide from search engines</label>
+              <br />
+              <small id="noindex-hint">
+                Readers can still open the post; it stays out of search results
+                and the sitemap.
+              </small>
+            </p>
+          </fieldset>
         </fieldset>
 
         {message !== null && <p role={message.kind}>{message.text}</p>}
-        <p>
-          <button type="submit" disabled={pending}>
-            {published ? "Save changes" : "Save draft"}
-          </button>{" "}
-          <button type="button" disabled={pending} onClick={handlePreview}>
-            Save and preview
-          </button>{" "}
-          {canPublish && !published && (
-            <button type="button" disabled={pending} onClick={handlePublish}>
-              Publish
-            </button>
-          )}
-        </p>
+        {editable && (
+          <p>
+            <button type="submit" disabled={pending}>
+              {published ? "Save changes" : "Save draft"}
+            </button>{" "}
+            <button type="button" disabled={pending} onClick={handlePreview}>
+              Save and preview
+            </button>{" "}
+            {canPublish && !published && (
+              <button type="button" disabled={pending} onClick={handlePublish}>
+                Publish
+              </button>
+            )}
+          </p>
+        )}
       </form>
       {previews === null ? null : <PreviewsPanel previews={previews} />}
       {post === null ? null : (
@@ -714,7 +748,7 @@ export function PostEditor({
           postId={post.id}
           version={post.version}
           published={published}
-          disabled={pending || conflict !== null}
+          disabled={pending || conflict !== null || !editable}
           onRestore={handleRestore}
         />
       )}

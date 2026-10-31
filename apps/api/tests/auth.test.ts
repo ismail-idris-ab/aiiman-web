@@ -86,6 +86,9 @@ describe("POST /api/auth/login", () => {
         email: "writer@example.com",
         name: "Writer",
         role: "admin",
+        status: "active",
+        passwordSet: true,
+        createdAt: "2026-10-22T00:00:00.000Z",
       },
     });
     const header = res.headers.get("set-cookie") ?? "";

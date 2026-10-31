@@ -6,8 +6,10 @@ import {
   draftInputSchema,
   missingRequiredPages,
   OPTIONAL_POST_FIELDS,
+  can,
   postInputSchema,
   type DraftInput,
+  type PostResource,
   type PostStatus,
 } from "@aiiman/shared";
 import {
@@ -16,8 +18,9 @@ import {
   type Request,
   type Response,
 } from "express";
-import type { z } from "zod";
+import { allow, FORBIDDEN, userOf } from "../auth/policy.js";
 import { requireUser, type AuthDeps } from "../auth/routes.js";
+import { fieldErrors } from "../http/fields.js";
 import { SiteUnavailableError, type SiteClient } from "../site.js";
 import {
   DuplicateFieldError,
@@ -33,13 +36,26 @@ export interface PostDeps extends AuthDeps {
   site: SiteClient;
 }
 
-/** Admins and editors work on every post; authors only on their own. */
-export function canEdit(user: User, post: Post): boolean {
-  return user.role !== "author" || post.authorId === user.id;
+function asResource(post: Post): PostResource {
+  return { kind: "post", authorId: post.authorId, status: post.status };
 }
 
-export function canPublish(user: User): boolean {
-  return user.role === "admin" || user.role === "editor";
+/**
+ * Fields the writer may not change keep their stored value (or none, on a
+ * new post): featured needs post.feature, canonical and noindex post.indexing.
+ */
+function withLockedFields(
+  user: User,
+  input: DraftInput,
+  post?: Post,
+): DraftInput {
+  const locked: Partial<DraftInput> = {};
+  if (!can(user, "post.feature")) locked.featured = post?.featured;
+  if (!can(user, "post.indexing")) {
+    locked.canonical = post?.canonical;
+    locked.noindex = post?.noindex ?? false;
+  }
+  return { ...input, ...locked };
 }
 
 const DUPLICATE: Record<DuplicateFieldError["field"], string> = {
@@ -54,20 +70,6 @@ const NOT_SAVED: Record<DuplicateFieldError["field"], string> = {
 const PUBLISHED_SLUG = "A published post keeps its slug";
 const SITE_UNAVAILABLE =
   "Previews need the site connection. Try again, or check SITE_URL and SITE_API_SECRET.";
-
-/** Field path → first message, for showing errors next to form fields. */
-function fieldErrors(error: z.ZodError): Record<string, string> {
-  const fields: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path.join(".");
-    fields[key] ??= issue.message;
-  }
-  return fields;
-}
-
-function userOf(res: Response): User {
-  return res.locals.user as User;
-}
 
 function postOf(res: Response): Post {
   return res.locals.post as Post;
@@ -142,11 +144,25 @@ export function postsRouter(deps: PostDeps): Router {
   ) => {
     const stores = await getStores();
     const post = await stores.posts.findById(req.params.id);
-    if (post === null || !canEdit(userOf(res), post)) {
+    if (post === null || !can(userOf(res), "post.read", asResource(post))) {
       res.status(404).json({ error: "Post not found" });
       return;
     }
     res.locals.post = post;
+    next();
+  };
+
+  /** After loadPost: 403 unless the user may change this post. */
+  const requireEdit = (_req: Request, res: Response, next: NextFunction) => {
+    if (!can(userOf(res), "post.edit", asResource(postOf(res)))) {
+      res.status(403).json({
+        error:
+          postOf(res).status === "published"
+            ? "Published posts are changed by editors. Ask one to make the change."
+            : FORBIDDEN,
+      });
+      return;
+    }
     next();
   };
 
@@ -211,19 +227,19 @@ export function postsRouter(deps: PostDeps): Router {
     const user = userOf(res);
     const stores = await getStores();
     const posts = (await stores.posts.list()).filter((post) =>
-      canEdit(user, post),
+      can(user, "post.read", asResource(post)),
     );
     res.json({ posts });
   });
 
-  router.post("/", async (req, res) => {
+  router.post("/", allow("post.create"), async (req, res) => {
     const input = await parseInput(req.body, res);
     if (input === undefined) return;
     const user = userOf(res);
     const time = now();
     const post: Post = {
       id: randomUUID(),
-      ...input,
+      ...withLockedFields(user, input),
       status: "draft",
       authorId: user.id,
       createdAt: time,
@@ -313,7 +329,7 @@ export function postsRouter(deps: PostDeps): Router {
     }
     if (saved === null) {
       const current = await stores.posts.findById(post.id);
-      if (current === null || !canEdit(user, current)) {
+      if (current === null || !can(user, "post.read", asResource(current))) {
         res.status(404).json({ error: "Post not found" });
       } else {
         res.status(412).json({ error: CHANGED, post: current });
@@ -340,11 +356,12 @@ export function postsRouter(deps: PostDeps): Router {
   const write = async (
     res: Response,
     post: Post,
-    input: DraftInput,
+    edited: DraftInput,
     base: number,
     kind: RevisionKind,
     extra: Record<string, unknown> = {},
   ) => {
+    const input = withLockedFields(userOf(res), edited, post);
     // Changing a live URL needs a permanent redirect, which arrives with previous slugs.
     if (post.status === "published" && input.slug !== post.slug) {
       res.status(409).json({
@@ -381,7 +398,7 @@ export function postsRouter(deps: PostDeps): Router {
     return base;
   };
 
-  router.put("/:id", loadPost, async (req, res) => {
+  router.put("/:id", loadPost, requireEdit, async (req, res) => {
     const base = requireBase(req, res);
     if (base === undefined) return;
     const post = postOf(res);
@@ -422,6 +439,7 @@ export function postsRouter(deps: PostDeps): Router {
   router.post(
     "/:id/revisions/:revisionId/restore",
     loadPost,
+    requireEdit,
     async (req: Request<{ id: string; revisionId: string }>, res) => {
       const base = requireBase(req, res);
       if (base === undefined) return;
@@ -449,7 +467,7 @@ export function postsRouter(deps: PostDeps): Router {
   );
 
   router.post("/:id/publish", loadPost, async (_req, res) => {
-    if (!canPublish(userOf(res))) {
+    if (!can(userOf(res), "post.publish", asResource(postOf(res)))) {
       res.status(403).json({ error: "Only editors and admins can publish" });
       return;
     }

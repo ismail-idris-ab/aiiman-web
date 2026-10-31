@@ -1,4 +1,4 @@
-import { textToDoc } from "@aiiman/shared";
+import { textToDoc, type Role } from "@aiiman/shared";
 import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -9,7 +9,6 @@ import { KEEP_REVISIONS } from "../src/posts/revisions.js";
 import {
   createMongoStores,
   resetIndexCacheForTests,
-  type Role,
   type Stores,
 } from "../src/store.js";
 import { request, testDeps } from "./helpers.js";
@@ -226,7 +225,13 @@ describe("autosave", () => {
       cookie: as("admin"),
     });
     const { post: live } = (await published.json()) as Saved;
-    const res = await save(a, post.id, live.version, { title: "Half typed" });
+    const res = await save(
+      a,
+      post.id,
+      live.version,
+      { title: "Half typed" },
+      { userId: "admin" },
+    );
     expect(res.status).toBe(409);
     // A chosen save must meet the publishing rules.
     const short = await save(
@@ -236,6 +241,7 @@ describe("autosave", () => {
       { title: "Short" },
       {
         autosave: false,
+        userId: "admin",
       },
     );
     expect(short.status).toBe(400);
