@@ -11,6 +11,7 @@ import express, {
   type RequestHandler,
 } from "express";
 import { requireUser, type AuthDeps } from "../auth/routes.js";
+import { allow } from "../auth/policy.js";
 import type { User } from "../store.js";
 import type { ImageStore } from "./blob.js";
 import { processImage, UnsupportedImageError } from "./images.js";
@@ -45,6 +46,7 @@ export function uploadsRouter(deps: UploadDeps): Router {
   router.post(
     "/",
     requireUser(deps),
+    allow("upload.create"),
     requireStore,
     express.raw({ type: [...IMAGE_TYPES], limit: MAX_IMAGE_BYTES }),
     async (req, res) => {

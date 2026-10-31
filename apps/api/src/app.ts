@@ -8,6 +8,7 @@ import { requireSameOrigin } from "./http/origin.js";
 import { postsRouter, type PostDeps } from "./posts/routes.js";
 import { previewRouter, publicRouter } from "./public/routes.js";
 import { uploadsRouter, type UploadDeps } from "./uploads/routes.js";
+import { profileRouter, usersRouter } from "./users/routes.js";
 
 export type Logger = (event: string, fields?: Record<string, unknown>) => void;
 
@@ -46,6 +47,8 @@ export function createApp(deps: AppDeps): Express {
   });
 
   app.use("/api/auth", authRouter(deps));
+  app.use("/api/users", usersRouter(deps));
+  app.use("/api/profile", profileRouter(deps));
   app.use("/api/posts", postsRouter(deps));
   app.use("/api/uploads", uploadsRouter(deps));
   app.use("/api/public", publicRouter(deps));

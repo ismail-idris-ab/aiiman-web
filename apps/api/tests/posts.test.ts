@@ -1,4 +1,4 @@
-import { textToDoc } from "@aiiman/shared";
+import { textToDoc, type Role } from "@aiiman/shared";
 import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import {
@@ -16,7 +16,6 @@ import { SESSION_COOKIE } from "../src/http/cookies.js";
 import {
   createMongoStores,
   resetIndexCacheForTests,
-  type Role,
   type Stores,
 } from "../src/store.js";
 import { request, testDeps, testSite } from "./helpers.js";
@@ -227,6 +226,80 @@ describe("/api/posts", () => {
     const a = app();
     const { id } = await createPost(a, "author");
     expect((await publish(a, id, "author")).status).toBe(403);
+  });
+
+  it("lets authors read their published posts but leaves edits to editors", async () => {
+    const a = app();
+    const { id } = await createPost(a, "author");
+    expect((await publish(a, id, "editor")).status).toBe(200);
+    expect(
+      (await request(a, `/api/posts/${id}`, { cookie: as("author") })).status,
+    ).toBe(200);
+    expect(
+      (await request(a, `/api/posts/${id}/revisions`, { cookie: as("author") }))
+        .status,
+    ).toBe(200);
+
+    const res = await edit(
+      a,
+      id,
+      { title: "Changed after it went live" },
+      "author",
+    );
+    expect(res.status).toBe(403);
+    const [revision] = await stores.revisions.list(id);
+    const restore = await request(
+      a,
+      `/api/posts/${id}/revisions/${revision?.id}/restore`,
+      {
+        method: "POST",
+        cookie: as("author"),
+        headers: { "if-match": '"2"' },
+      },
+    );
+    expect(restore.status).toBe(403);
+    expect((await stores.posts.findById(id))?.title).toBe(
+      "Written in the admin",
+    );
+  });
+
+  it("keeps featured, canonical and noindex out of authors' hands", async () => {
+    const a = app();
+    const { id } = await createPost(a, "author", {
+      featured: 2,
+      canonical: "https://example.com/original",
+      noindex: true,
+    });
+    let post = await stores.posts.findById(id);
+    expect(post).not.toHaveProperty("featured");
+    expect(post).not.toHaveProperty("canonical");
+    expect(post?.noindex).toBe(false);
+
+    // An editor sets them; the author's later saves keep them.
+    expect(
+      (
+        await edit(
+          a,
+          id,
+          {
+            featured: 4,
+            canonical: "https://example.com/first",
+            noindex: true,
+          },
+          "editor",
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await edit(a, id, { title: "Retitled by the author" }, "author")).status,
+    ).toBe(200);
+    post = await stores.posts.findById(id);
+    expect(post).toMatchObject({
+      title: "Retitled by the author",
+      featured: 4,
+      canonical: "https://example.com/first",
+      noindex: true,
+    });
   });
 
   it("publishes, keeps the first publish time and asks the site to refresh", async () => {
